@@ -305,6 +305,7 @@
 use cmp;
 use fmt;
 use iter_private::TrustedRandomAccess;
+use ops::Try;
 use usize;
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -336,6 +337,57 @@ mod range;
 mod sources;
 mod traits;
 
+/// ZST used to implement foo methods in terms of try_foo
+struct AlwaysOk<T>(pub T);
+
+impl<T> Try for AlwaysOk<T> {
+    type Ok = T;
+    type Error = !;
+    #[inline]
+    fn into_result(self) -> Result<Self::Ok, Self::Error> { Ok(self.0) }
+    #[inline]
+    fn from_error(v: Self::Error) -> Self { v }
+    #[inline]
+    fn from_ok(v: Self::Ok) -> Self { AlwaysOk(v) }
+}
+
+/// Used in methods that need to short-circuit on success instead of failure
+enum SearchResult<S, T> {
+    NotFound(S),
+    Found(T),
+}
+
+impl<S, T> Try for SearchResult<S, T> {
+    type Ok = S;
+    type Error = T;
+    #[inline]
+    fn into_result(self) -> Result<Self::Ok, Self::Error> {
+        match self {
+            SearchResult::NotFound(y) => Ok(y),
+            SearchResult::Found(x) => Err(x),
+        }
+    }
+    #[inline]
+    fn from_error(v: Self::Error) -> Self { SearchResult::Found(v) }
+    #[inline]
+    fn from_ok(v: Self::Ok) -> Self { SearchResult::NotFound(v) }
+}
+
+impl<S, T> SearchResult<S, T> {
+    #[inline]
+    fn is_found(self) -> bool {
+        if let SearchResult::Found(..) = self { true } else { false }
+    }
+
+    #[inline]
+    fn into_option(self) -> Option<T> {
+        match self {
+            SearchResult::NotFound(..) => None,
+            SearchResult::Found(x) => Some(x),
+        }
+    }
+}
+
 /// A double-ended iterator with the direction inverted.
 ///
 /// This `struct` is created by the [`rev`] method on [`Iterator`]. See its
@@ -358,6 +410,12 @@ impl<I> Iterator for Rev<I> where I: DoubleEndedIterator {
     fn next(&mut self) -> Option<<I as Iterator>::Item> { self.iter.next_back() }
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) { self.iter.size_hint() }
+
+    fn try_fold<B, F, R>(&mut self, init: B, f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        self.iter.try_rfold(init, f)
+    }
 
     fn fold<Acc, F>(self, init: Acc, f: F) -> Acc
         where F: FnMut(Acc, Self::Item) -> Acc,
@@ -384,6 +442,12 @@ impl<I> Iterator for Rev<I> where I: DoubleEndedIterator {
 impl<I> DoubleEndedIterator for Rev<I> where I: DoubleEndedIterator {
     #[inline]
     fn next_back(&mut self) -> Option<<I as Iterator>::Item> { self.iter.next() }
+
+    fn try_rfold<B, F, R>(&mut self, init: B, f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        self.iter.try_fold(init, f)
+    }
 
     fn rfold<Acc, F>(self, init: Acc, f: F) -> Acc
         where F: FnMut(Acc, Self::Item) -> Acc,
@@ -447,6 +511,12 @@ impl<'a, I, T: 'a> Iterator for Cloned<I>
         self.it.size_hint()
     }
 
+    fn try_fold<B, F, R>(&mut self, init: B, mut f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        self.it.try_fold(init, move |acc, elt| f(acc, elt.clone()))
+    }
+
     fn fold<Acc, F>(self, init: Acc, mut f: F) -> Acc
         where F: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -460,6 +530,12 @@ impl<'a, I, T: 'a> DoubleEndedIterator for Cloned<I>
 {
     fn next_back(&mut self) -> Option<T> {
         self.it.next_back().cloned()
+    }
+
+    fn try_rfold<B, F, R>(&mut self, init: B, mut f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        self.it.try_rfold(init, move |acc, elt| f(acc, elt.clone()))
     }
 
     fn rfold<Acc, F>(self, init: Acc, mut f: F) -> Acc
@@ -683,6 +759,26 @@ impl<A, B> Iterator for Chain<A, B> where
         }
     }
 
+    fn try_fold<Acc, F, R>(&mut self, init: Acc, mut f: F) -> R where
+        Self: Sized, F: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        match self.state {
+            ChainState::Front => {
+                self.a.try_fold(init, f)
+            }
+            ChainState::Both => {
+                let mut accum = init;
+                accum = self.a.try_fold(accum, &mut f)?;
+                self.state = ChainState::Back;
+                accum = self.b.try_fold(accum, &mut f)?;
+                Try::from_ok(accum)
+            }
+            ChainState::Back => {
+                self.b.try_fold(init, f)
+            }
+        }
+    }
+
     fn fold<Acc, F>(self, init: Acc, mut f: F) -> Acc
         where F: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -789,6 +885,26 @@ impl<A, B> DoubleEndedIterator for Chain<A, B> where
             },
             ChainState::Front => self.a.next_back(),
             ChainState::Back => self.b.next_back(),
+        }
+    }
+
+    fn try_rfold<Acc, F, R>(&mut self, init: Acc, mut f: F) -> R where
+        Self: Sized, F: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        match self.state {
+            ChainState::Back => {
+                self.b.try_rfold(init, f)
+            }
+            ChainState::Both => {
+                let mut accum = init;
+                accum = self.b.try_rfold(accum, &mut f)?;
+                self.state = ChainState::Front;
+                accum = self.a.try_rfold(accum, &mut f)?;
+                Try::from_ok(accum)
+            }
+            ChainState::Front => {
+                self.a.try_rfold(init, f)
+            }
         }
     }
 
@@ -1128,6 +1244,13 @@ impl<B, I: Iterator, F> Iterator for Map<I, F> where F: FnMut(I::Item) -> B {
         self.iter.size_hint()
     }
 
+    fn try_fold<Acc, G, R>(&mut self, init: Acc, mut g: G) -> R where
+        Self: Sized, G: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let f = &mut self.f;
+        self.iter.try_fold(init, move |acc, elt| g(acc, f(elt)))
+    }
+
     fn fold<Acc, G>(self, init: Acc, mut g: G) -> Acc
         where G: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -1143,6 +1266,13 @@ impl<B, I: DoubleEndedIterator, F> DoubleEndedIterator for Map<I, F> where
     #[inline]
     fn next_back(&mut self) -> Option<B> {
         self.iter.next_back().map(&mut self.f)
+    }
+
+    fn try_rfold<Acc, G, R>(&mut self, init: Acc, mut g: G) -> R where
+        Self: Sized, G: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let f = &mut self.f;
+        self.iter.try_rfold(init, move |acc, elt| g(acc, f(elt)))
     }
 
     fn rfold<Acc, G>(self, init: Acc, mut g: G) -> Acc
@@ -1252,6 +1382,18 @@ impl<I: Iterator, P> Iterator for Filter<I, P> where P: FnMut(&I::Item) -> bool 
     }
 
     #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let predicate = &mut self.predicate;
+        self.iter.try_fold(init, move |acc, item| if predicate(&item) {
+            fold(acc, item)
+        } else {
+            Try::from_ok(acc)
+        })
+    }
+
+    #[inline]
     fn fold<Acc, Fold>(self, init: Acc, mut fold: Fold) -> Acc
         where Fold: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -1276,6 +1418,18 @@ impl<I: DoubleEndedIterator, P> DoubleEndedIterator for Filter<I, P>
             }
         }
         None
+    }
+
+    #[inline]
+    fn try_rfold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let predicate = &mut self.predicate;
+        self.iter.try_rfold(init, move |acc, item| if predicate(&item) {
+            fold(acc, item)
+        } else {
+            Try::from_ok(acc)
+        })
     }
 
     #[inline]
@@ -1342,6 +1496,17 @@ impl<B, I: Iterator, F> Iterator for FilterMap<I, F>
     }
 
     #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let f = &mut self.f;
+        self.iter.try_fold(init, move |acc, item| match f(item) {
+            Some(x) => fold(acc, x),
+            None => Try::from_ok(acc),
+        })
+    }
+
+    #[inline]
     fn fold<Acc, Fold>(self, init: Acc, mut fold: Fold) -> Acc
         where Fold: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -1365,6 +1530,17 @@ impl<B, I: DoubleEndedIterator, F> DoubleEndedIterator for FilterMap<I, F>
             }
         }
         None
+    }
+
+    #[inline]
+    fn try_rfold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let f = &mut self.f;
+        self.iter.try_rfold(init, move |acc, item| match f(item) {
+            Some(x) => fold(acc, x),
+            None => Try::from_ok(acc),
+        })
     }
 
     #[inline]
@@ -1444,6 +1620,19 @@ impl<I> Iterator for Enumerate<I> where I: Iterator {
 
     #[inline]
     #[rustc_inherit_overflow_checks]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let count = &mut self.count;
+        self.iter.try_fold(init, move |acc, item| {
+            let acc = fold(acc, (*count, item));
+            *count += 1;
+            acc
+        })
+    }
+
+    #[inline]
+    #[rustc_inherit_overflow_checks]
     fn fold<Acc, Fold>(self, init: Acc, mut fold: Fold) -> Acc
         where Fold: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -1467,6 +1656,19 @@ impl<I> DoubleEndedIterator for Enumerate<I> where
             // Can safely add, `ExactSizeIterator` promises that the number of
             // elements fits into a `usize`.
             (self.count + len, a)
+        })
+    }
+
+    #[inline]
+    fn try_rfold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        // Can safely add and subtract the count, as `ExactSizeIterator` promises
+        // that the number of elements fits into a `usize`.
+        let mut count = self.count + self.iter.len();
+        self.iter.try_rfold(init, move |acc, item| {
+            count -= 1;
+            fold(acc, (count, item))
         })
     }
 
@@ -1595,6 +1797,18 @@ impl<I: Iterator> Iterator for Peekable<I> {
     }
 
     #[inline]
+    fn try_fold<B, F, R>(&mut self, init: B, mut f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        let acc = match self.peeked.take() {
+            Some(None) => return Try::from_ok(init),
+            Some(Some(v)) => f(init, v)?,
+            None => init,
+        };
+        self.iter.try_fold(acc, f)
+    }
+
+    #[inline]
     fn fold<Acc, Fold>(self, init: Acc, mut fold: Fold) -> Acc
         where Fold: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -1699,19 +1913,35 @@ impl<I: Iterator, P> Iterator for SkipWhile<I, P>
 
     #[inline]
     fn next(&mut self) -> Option<I::Item> {
-        for x in self.iter.by_ref() {
-            if self.flag || !(self.predicate)(&x) {
-                self.flag = true;
-                return Some(x);
+        let flag = &mut self.flag;
+        let pred = &mut self.predicate;
+        self.iter.find(move |x| {
+            if *flag || !pred(x) {
+                *flag = true;
+                true
+            } else {
+                false
             }
-        }
-        None
+        })
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (_, upper) = self.iter.size_hint();
         (0, upper) // can't know a lower bound, due to the predicate
+    }
+
+    #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, mut init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        if !self.flag {
+            match self.next() {
+                Some(v) => init = fold(init, v)?,
+                None => return Try::from_ok(init),
+            }
+        }
+        self.iter.try_fold(init, fold)
     }
 
     #[inline]
@@ -1865,6 +2095,21 @@ impl<I> Iterator for Skip<I> where I: Iterator {
         let upper = upper.map(|x| x.saturating_sub(self.n));
 
         (lower, upper)
+    }
+
+    #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let n = self.n;
+        self.n = 0;
+        if n > 0 {
+            // nth(n) skips n+1
+            if self.iter.nth(n - 1).is_none() {
+                return Try::from_ok(init);
+            }
+        }
+        self.iter.try_fold(init, fold)
     }
 
     #[inline]
@@ -2071,6 +2316,35 @@ impl<I: Iterator, U: IntoIterator, F> Iterator for FlatMap<I, U, F>
     }
 
     #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, mut init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        if let Some(ref mut front) = self.frontiter {
+            init = front.try_fold(init, &mut fold)?;
+        }
+        self.frontiter = None;
+
+        {
+            let f = &mut self.f;
+            let frontiter = &mut self.frontiter;
+            init = self.iter.try_fold(init, |acc, x| {
+                let mut mid = f(x).into_iter();
+                let r = mid.try_fold(acc, &mut fold);
+                *frontiter = Some(mid);
+                r
+            })?;
+        }
+        self.frontiter = None;
+
+        if let Some(ref mut back) = self.backiter {
+            init = back.try_fold(init, &mut fold)?;
+        }
+        self.backiter = None;
+
+        Try::from_ok(init)
+    }
+
+    #[inline]
     fn fold<Acc, Fold>(self, init: Acc, mut fold: Fold) -> Acc
         where Fold: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -2100,6 +2374,35 @@ impl<I: DoubleEndedIterator, U, F> DoubleEndedIterator for FlatMap<I, U, F> wher
                 next => self.backiter = next.map(IntoIterator::into_iter),
             }
         }
+    }
+
+    #[inline]
+    fn try_rfold<Acc, Fold, R>(&mut self, mut init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        if let Some(ref mut back) = self.backiter {
+            init = back.try_rfold(init, &mut fold)?;
+        }
+        self.backiter = None;
+
+        {
+            let f = &mut self.f;
+            let backiter = &mut self.backiter;
+            init = self.iter.try_rfold(init, |acc, x| {
+                let mut mid = f(x).into_iter();
+                let r = mid.try_rfold(acc, &mut fold);
+                *backiter = Some(mid);
+                r
+            })?;
+        }
+        self.backiter = None;
+
+        if let Some(ref mut front) = self.frontiter {
+            init = front.try_rfold(init, &mut fold)?;
+        }
+        self.frontiter = None;
+
+        Try::from_ok(init)
     }
 
     #[inline]
@@ -2190,6 +2493,19 @@ impl<I> Iterator for Fuse<I> where I: Iterator {
     }
 
     #[inline]
+    default fn try_fold<Acc, Fold, R>(&mut self, init: Acc, fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        if self.done {
+            Try::from_ok(init)
+        } else {
+            let acc = self.iter.try_fold(init, fold)?;
+            self.done = true;
+            Try::from_ok(acc)
+        }
+    }
+
+    #[inline]
     default fn fold<Acc, Fold>(self, init: Acc, fold: Fold) -> Acc
         where Fold: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -2211,6 +2527,19 @@ impl<I> DoubleEndedIterator for Fuse<I> where I: DoubleEndedIterator {
             let next = self.iter.next_back();
             self.done = next.is_none();
             next
+        }
+    }
+
+    #[inline]
+    default fn try_rfold<Acc, Fold, R>(&mut self, init: Acc, fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        if self.done {
+            Try::from_ok(init)
+        } else {
+            let acc = self.iter.try_rfold(init, fold)?;
+            self.done = true;
+            Try::from_ok(acc)
         }
     }
 
@@ -2266,6 +2595,13 @@ impl<I> Iterator for Fuse<I> where I: FusedIterator {
     }
 
     #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        self.iter.try_fold(init, fold)
+    }
+
+    #[inline]
     fn fold<Acc, Fold>(self, init: Acc, fold: Fold) -> Acc
         where Fold: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -2280,6 +2616,13 @@ impl<I> DoubleEndedIterator for Fuse<I>
     #[inline]
     fn next_back(&mut self) -> Option<<I as Iterator>::Item> {
         self.iter.next_back()
+    }
+
+    #[inline]
+    fn try_rfold<Acc, Fold, R>(&mut self, init: Acc, fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        self.iter.try_rfold(init, fold)
     }
 
     #[inline]
@@ -2354,6 +2697,14 @@ impl<I: Iterator, F> Iterator for Inspect<I, F> where F: FnMut(&I::Item) {
     }
 
     #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let f = &mut self.f;
+        self.iter.try_fold(init, move |acc, item| { f(&item); fold(acc, item) })
+    }
+
+    #[inline]
     fn fold<Acc, Fold>(self, init: Acc, mut fold: Fold) -> Acc
         where Fold: FnMut(Acc, Self::Item) -> Acc,
     {
@@ -2370,6 +2721,14 @@ impl<I: DoubleEndedIterator, F> DoubleEndedIterator for Inspect<I, F>
     fn next_back(&mut self) -> Option<I::Item> {
         let next = self.iter.next_back();
         self.do_inspect(next)
+    }
+
+    #[inline]
+    fn try_rfold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let f = &mut self.f;
+        self.iter.try_rfold(init, move |acc, item| { f(&item); fold(acc, item) })
     }
 
     #[inline]
