@@ -1739,8 +1739,9 @@ pub trait Iterator {
         // implies that the number of elements fits into a `usize`.
         let n = self.len();
         self.try_rfold(n, move |i, x| {
+            let i = i - 1;
             if predicate(x) { SearchResult::Found(i) }
-            else { SearchResult::NotFound(i-1) }
+            else { SearchResult::NotFound(i) }
         }).into_option()
     }
 
