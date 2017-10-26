@@ -388,6 +388,33 @@ impl<S, T> SearchResult<S, T> {
     }
 }
 
+impl<T> SearchResult<T, T> {
+    #[inline]
+    fn into_inner(self) -> T {
+        match self {
+            SearchResult::Found(a) |
+            SearchResult::NotFound(a) => a
+        }
+    }
+}
+
+impl<R: Try> SearchResult<R::Ok, R> {
+    #[inline]
+    fn from_try(r: R) -> Self {
+        match Try::into_result(r) {
+            Ok(v) => SearchResult::NotFound(v),
+            Err(v) => SearchResult::Found(Try::from_error(v)),
+        }
+    }
+    #[inline]
+    fn into_try(self) -> R {
+        match self {
+            SearchResult::NotFound(v) => Try::from_ok(v),
+            SearchResult::Found(v) => v,
+        }
+    }
+}
+
 /// A double-ended iterator with the direction inverted.
 ///
 /// This `struct` is created by the [`rev`] method on [`Iterator`]. See its
@@ -2015,6 +2042,41 @@ impl<I: Iterator, P> Iterator for TakeWhile<I, P>
         let (_, upper) = self.iter.size_hint();
         (0, upper) // can't know a lower bound, due to the predicate
     }
+
+    #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        if self.flag {
+            Try::from_ok(init)
+        } else {
+            let flag = &mut self.flag;
+            let p = &mut self.predicate;
+            self.iter.try_fold(init, move |acc, x|{
+                if p(&x) {
+                    SearchResult::from_try(fold(acc, x))
+                } else {
+                    *flag = true;
+                    SearchResult::Found(Try::from_ok(acc))
+                }
+            }).into_try()
+        }
+    }
+
+    #[inline]
+    fn fold<Acc, Fold>(mut self, init: Acc, mut fold: Fold) -> Acc
+        where Fold: FnMut(Acc, Self::Item) -> Acc,
+    {
+        if self.flag {
+            init
+        } else {
+            let mut p = self.predicate;
+            self.iter.try_fold(init, move |acc, x| {
+                if p(&x) { SearchResult::NotFound(fold(acc, x)) }
+                else { SearchResult::Found(acc) }
+            }).into_inner()
+        }
+    }
 }
 
 #[unstable(feature = "fused", issue = "35602")]
@@ -2199,6 +2261,40 @@ impl<I> Iterator for Take<I> where I: Iterator{
 
         (lower, upper)
     }
+
+    #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        if self.n == 0 {
+            Try::from_ok(init)
+        } else {
+            let n = &mut self.n;
+            self.iter.try_fold(init, move |acc, x| {
+                *n -= 1;
+                let r = fold(acc, x);
+                if *n == 0 { SearchResult::Found(r) }
+                else { SearchResult::from_try(r) }
+            }).into_try()
+        }
+    }
+
+    #[inline]
+    fn fold<Acc, Fold>(mut self, init: Acc, mut fold: Fold) -> Acc
+        where Fold: FnMut(Acc, Self::Item) -> Acc,
+    {
+        let mut n = self.n;
+        if n == 0 {
+            init
+        } else {
+            self.iter.try_fold(init, move |acc, x| {
+                n -= 1;
+                let acc = fold(acc, x);
+                if n == 0 { SearchResult::Found(acc) }
+                else { SearchResult::NotFound(acc) }
+            }).into_inner()
+        }
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -2249,6 +2345,34 @@ impl<B, I, St, F> Iterator for Scan<I, St, F> where
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (_, upper) = self.iter.size_hint();
         (0, upper) // can't know a lower bound, due to the scan function
+    }
+
+    #[inline]
+    fn try_fold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let state = &mut self.state;
+        let f = &mut self.f;
+        self.iter.try_fold(init, move |acc, x| {
+            match f(state, x) {
+                None => SearchResult::Found(Try::from_ok(acc)),
+                Some(x) => SearchResult::from_try(fold(acc, x)),
+            }
+        }).into_try()
+    }
+
+    #[inline]
+    fn fold<Acc, Fold>(mut self, init: Acc, mut fold: Fold) -> Acc
+        where Fold: FnMut(Acc, Self::Item) -> Acc,
+    {
+        let mut state = self.state;
+        let mut f = self.f;
+        self.iter.try_fold(init, move |acc, x| {
+            match f(&mut state, x) {
+                None => SearchResult::Found(acc),
+                Some(v) => SearchResult::NotFound(fold(acc, v)),
+            }
+        }).into_inner()
     }
 }
 
