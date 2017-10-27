@@ -2200,6 +2200,38 @@ impl<I> DoubleEndedIterator for Skip<I> where I: DoubleEndedIterator + ExactSize
             None
         }
     }
+
+    fn try_rfold<Acc, Fold, R>(&mut self, init: Acc, mut fold: Fold) -> R where
+        Self: Sized, Fold: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
+    {
+        let mut n = self.len();
+        if n == 0 {
+            Try::from_ok(init)
+        } else {
+            self.iter.try_rfold(init, move |acc, x| {
+                n -= 1;
+                let r = fold(acc, x);
+                if n == 0 { SearchResult::Found(r) }
+                else { SearchResult::from_try(r) }
+            }).into_try()
+        }
+    }
+
+    fn rfold<Acc, Fold>(mut self, init: Acc, mut fold: Fold) -> Acc
+        where Fold: FnMut(Acc, Self::Item) -> Acc,
+    {
+        let mut n = self.len();
+        if n == 0 {
+            init
+        } else {
+            self.iter.try_rfold(init, move |acc, x| {
+                n -= 1;
+                let acc = fold(acc, x);
+                if n == 0 { SearchResult::Found(acc) }
+                else { SearchResult::NotFound(acc) }
+            }).into_inner()
+        }
+    }
 }
 
 #[unstable(feature = "fused", issue = "35602")]
