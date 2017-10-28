@@ -1389,7 +1389,7 @@ pub trait Iterator {
     /// assert_eq!(it.next(), Some(&40));
     /// ```
     #[inline]
-    #[unstable(feature = "iterator_try_fold", issue = "88888888")]
+    #[unstable(feature = "iterator_try_fold", issue = "45594")]
     fn try_fold<B, F, R>(&mut self, init: B, mut f: F) -> R where
         Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
     {
