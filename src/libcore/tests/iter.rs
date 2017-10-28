@@ -1687,7 +1687,7 @@ fn test_take_try_folds() {
 
 #[test]
 fn test_flat_map_try_folds() {
-    let f = &|acc, x| i32::checked_add(2*acc, x);
+    let f = &|acc, x| i32::checked_add(acc*2/3, x);
     let mr = &|x| (5*x)..(5*x + 5);
     assert_eq!((0..10).flat_map(mr).try_fold(7, f), (0..50).try_fold(7, f));
     assert_eq!((0..10).flat_map(mr).try_rfold(7, f), (0..50).try_rfold(7, f));
