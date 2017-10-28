@@ -389,16 +389,6 @@ impl<S, T> SearchResult<S, T> {
     }
 }
 
-impl<T> SearchResult<T, T> {
-    #[inline]
-    fn into_inner(self) -> T {
-        match self {
-            SearchResult::Found(a) |
-            SearchResult::NotFound(a) => a
-        }
-    }
-}
-
 impl<R: Try> SearchResult<R::Ok, R> {
     #[inline]
     fn from_try(r: R) -> Self {
@@ -2063,21 +2053,6 @@ impl<I: Iterator, P> Iterator for TakeWhile<I, P>
             }).into_try()
         }
     }
-
-    #[inline]
-    fn fold<Acc, Fold>(mut self, init: Acc, mut fold: Fold) -> Acc
-        where Fold: FnMut(Acc, Self::Item) -> Acc,
-    {
-        if self.flag {
-            init
-        } else {
-            let mut p = self.predicate;
-            self.iter.try_fold(init, move |acc, x| {
-                if p(&x) { SearchResult::NotFound(fold(acc, x)) }
-                else { SearchResult::Found(acc) }
-            }).into_inner()
-        }
-    }
 }
 
 #[unstable(feature = "fused", issue = "35602")]
@@ -2215,22 +2190,6 @@ impl<I> DoubleEndedIterator for Skip<I> where I: DoubleEndedIterator + ExactSize
                 if n == 0 { SearchResult::Found(r) }
                 else { SearchResult::from_try(r) }
             }).into_try()
-        }
-    }
-
-    fn rfold<Acc, Fold>(mut self, init: Acc, mut fold: Fold) -> Acc
-        where Fold: FnMut(Acc, Self::Item) -> Acc,
-    {
-        let mut n = self.len();
-        if n == 0 {
-            init
-        } else {
-            self.iter.try_rfold(init, move |acc, x| {
-                n -= 1;
-                let acc = fold(acc, x);
-                if n == 0 { SearchResult::Found(acc) }
-                else { SearchResult::NotFound(acc) }
-            }).into_inner()
         }
     }
 }
