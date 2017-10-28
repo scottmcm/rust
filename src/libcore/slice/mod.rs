@@ -1197,14 +1197,8 @@ macro_rules! iterator {
                 // Let LLVM unroll this, rather than using the default
                 // impl that would force the manual unrolling above
                 let mut accum = init;
-                unsafe {
-                    if mem::size_of::<T>() != 0 {
-                        assume(!self.ptr.is_null());
-                        assume(self.ptr <= self.end);
-                    }
-                    while self.ptr != self.end {
-                        accum = f(accum, $mkref!(self.ptr.post_inc()));
-                    }
+                while let Some(x) = self.next() {
+                    accum = f(accum, x);
                 }
                 accum
             }
@@ -1259,14 +1253,8 @@ macro_rules! iterator {
                 // Let LLVM unroll this, rather than using the default
                 // impl that would force the manual unrolling above
                 let mut accum = init;
-                unsafe {
-                    if mem::size_of::<T>() != 0 {
-                        assume(!self.ptr.is_null());
-                        assume(self.ptr <= self.end);
-                    }
-                    while self.ptr != self.end {
-                        accum = f(accum, $mkref!(self.end.pre_dec()));
-                    }
+                while let Some(x) = self.next_back() {
+                    accum = f(accum, x);
                 }
                 accum
             }

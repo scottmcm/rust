@@ -337,7 +337,8 @@ mod range;
 mod sources;
 mod traits;
 
-/// ZST used to implement foo methods in terms of try_foo
+/// Transparent newtype used to implement foo methods in terms of try_foo.
+/// Important until #43278 is fixed; might be better as `Result<T, !>` later.
 struct AlwaysOk<T>(pub T);
 
 impl<T> Try for AlwaysOk<T> {
@@ -2310,23 +2311,6 @@ impl<I> Iterator for Take<I> where I: Iterator{
             }).into_try()
         }
     }
-
-    #[inline]
-    fn fold<Acc, Fold>(mut self, init: Acc, mut fold: Fold) -> Acc
-        where Fold: FnMut(Acc, Self::Item) -> Acc,
-    {
-        let mut n = self.n;
-        if n == 0 {
-            init
-        } else {
-            self.iter.try_fold(init, move |acc, x| {
-                n -= 1;
-                let acc = fold(acc, x);
-                if n == 0 { SearchResult::Found(acc) }
-                else { SearchResult::NotFound(acc) }
-            }).into_inner()
-        }
-    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -2391,20 +2375,6 @@ impl<B, I, St, F> Iterator for Scan<I, St, F> where
                 Some(x) => SearchResult::from_try(fold(acc, x)),
             }
         }).into_try()
-    }
-
-    #[inline]
-    fn fold<Acc, Fold>(mut self, init: Acc, mut fold: Fold) -> Acc
-        where Fold: FnMut(Acc, Self::Item) -> Acc,
-    {
-        let mut state = self.state;
-        let mut f = self.f;
-        self.iter.try_fold(init, move |acc, x| {
-            match f(&mut state, x) {
-                None => SearchResult::Found(acc),
-                Some(v) => SearchResult::NotFound(fold(acc, v)),
-            }
-        }).into_inner()
     }
 }
 

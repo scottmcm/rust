@@ -1338,11 +1338,11 @@ pub trait Iterator {
     /// An iterator method that applies a function as long as it returns
     /// successfully, producing a single, final value.
     ///
-    /// `fold()` takes two arguments: an initial value, and a closure with two
-    /// arguments: an 'accumulator', and an element. The closure either returns
-    /// successfully, with the value that the accumulator should have for the
-    /// next iteration, or it returns failure, with an error value that is
-    /// propagated back to the caller immediately (short-circuiting).
+    /// `try_fold()` takes two arguments: an initial value, and a closure with
+    /// two arguments: an 'accumulator', and an element. The closure either
+    /// returns successfully, with the value that the accumulator should have
+    /// for the next iteration, or it returns failure, with an error value that
+    /// is propagated back to the caller immediately (short-circuiting).
     ///
     /// The initial value is the value the accumulator will have on the first
     /// call.  If applying the closure succeeded against every element of the
@@ -1353,9 +1353,16 @@ pub trait Iterator {
     ///
     /// # Note to Implementors
     ///
-    /// If possible, override this method with an implementation using
-    /// internal iteration.  Most of the other methods have their default
-    /// implementation in terms of this one.
+    /// Most of the other (forward) methods have default implementations in
+    /// terms of this one, so try to implement this explicitly if it can
+    /// do something better than the default `for` loop implementation.
+    ///
+    /// In particular, try to have this call `try_fold()` on the internal parts
+    /// from which this iterator is composed.  If multiple calls are needed,
+    /// the `?` operator be convenient for chaining the accumulator value along,
+    /// but beware any invariants that need to be upheld before those early
+    /// returns.  This is a `&mut self` method, so iteration needs to be
+    /// resumable after hitting an error here.
     ///
     /// # Examples
     ///
@@ -1687,7 +1694,7 @@ pub trait Iterator {
         // The addition might panic on overflow
         self.try_fold(0, move |i, x| {
             if predicate(x) { SearchResult::Found(i) }
-            else { SearchResult::NotFound(i+1) }
+            else { SearchResult::NotFound(i + 1) }
         }).into_option()
     }
 
@@ -1973,7 +1980,7 @@ pub trait Iterator {
         let mut ts: FromA = Default::default();
         let mut us: FromB = Default::default();
 
-        self.for_each(|(t, u)|{
+        self.for_each(|(t, u)| {
             ts.extend(Some(t));
             us.extend(Some(u));
         });
@@ -2380,7 +2387,7 @@ trait SpecIterator : Iterator {
     fn spec_nth(&mut self, n: usize) -> Option<Self::Item>;
 }
 
-impl<I:Iterator+?Sized> SpecIterator for I {
+impl<I: Iterator + ?Sized> SpecIterator for I {
     default fn spec_nth(&mut self, mut n: usize) -> Option<Self::Item> {
         for x in self {
             if n == 0 { return Some(x) }
@@ -2390,11 +2397,11 @@ impl<I:Iterator+?Sized> SpecIterator for I {
    }
 }
 
-impl<I:Iterator+Sized> SpecIterator for I {
+impl<I: Iterator + Sized> SpecIterator for I {
     fn spec_nth(&mut self, n: usize) -> Option<Self::Item> {
         self.try_fold(n, move |i, x| {
             if i == 0 { SearchResult::Found(x) }
-            else { SearchResult::NotFound(i-1) }
+            else { SearchResult::NotFound(i - 1) }
         }).into_option()
    }
 }
