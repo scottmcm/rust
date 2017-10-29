@@ -780,21 +780,23 @@ impl<A, B> Iterator for Chain<A, B> where
     fn try_fold<Acc, F, R>(&mut self, init: Acc, mut f: F) -> R where
         Self: Sized, F: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
     {
+        let mut accum = init;
         match self.state {
-            ChainState::Front => {
-                self.a.try_fold(init, f)
-            }
-            ChainState::Both => {
-                let mut accum = init;
+            ChainState::Both | ChainState::Front => {
                 accum = self.a.try_fold(accum, &mut f)?;
-                self.state = ChainState::Back;
-                accum = self.b.try_fold(accum, &mut f)?;
-                Try::from_ok(accum)
+                if let ChainState::Both = self.state {
+                    self.state = ChainState::Back;
+                }
             }
-            ChainState::Back => {
-                self.b.try_fold(init, f)
-            }
+            _ => { }
         }
+        match self.state {
+            ChainState::Both | ChainState::Back => {
+                accum = self.b.try_fold(accum, &mut f)?;
+            }
+            _ => { }
+        }
+        Try::from_ok(accum)
     }
 
     fn fold<Acc, F>(self, init: Acc, mut f: F) -> Acc
@@ -909,21 +911,23 @@ impl<A, B> DoubleEndedIterator for Chain<A, B> where
     fn try_rfold<Acc, F, R>(&mut self, init: Acc, mut f: F) -> R where
         Self: Sized, F: FnMut(Acc, Self::Item) -> R, R: Try<Ok=Acc>
     {
+        let mut accum = init;
         match self.state {
-            ChainState::Back => {
-                self.b.try_rfold(init, f)
-            }
-            ChainState::Both => {
-                let mut accum = init;
+            ChainState::Both | ChainState::Back => {
                 accum = self.b.try_rfold(accum, &mut f)?;
-                self.state = ChainState::Front;
-                accum = self.a.try_rfold(accum, &mut f)?;
-                Try::from_ok(accum)
+                if let ChainState::Both = self.state {
+                    self.state = ChainState::Front;
+                }
             }
-            ChainState::Front => {
-                self.a.try_rfold(init, f)
-            }
+            _ => { }
         }
+        match self.state {
+            ChainState::Both | ChainState::Front => {
+                accum = self.a.try_rfold(accum, &mut f)?;
+            }
+            _ => { }
+        }
+        Try::from_ok(accum)
     }
 
     fn rfold<Acc, F>(self, init: Acc, mut f: F) -> Acc
