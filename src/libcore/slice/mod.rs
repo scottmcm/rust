@@ -1173,10 +1173,6 @@ macro_rules! iterator {
                 // manual unrolling is needed when there are conditional exits from the loop
                 let mut accum = init;
                 unsafe {
-                    if mem::size_of::<T>() != 0 {
-                        assume(!self.ptr.is_null());
-                        assume(self.ptr <= self.end);
-                    }
                     while ptrdistance(self.ptr, self.end) >= 4 {
                         accum = f(accum, $mkref!(self.ptr.post_inc()))?;
                         accum = f(accum, $mkref!(self.ptr.post_inc()))?;
@@ -1229,10 +1225,6 @@ macro_rules! iterator {
                 // manual unrolling is needed when there are conditional exits from the loop
                 let mut accum = init;
                 unsafe {
-                    if mem::size_of::<T>() != 0 {
-                        assume(!self.ptr.is_null());
-                        assume(self.ptr <= self.end);
-                    }
                     while ptrdistance(self.ptr, self.end) >= 4 {
                         accum = f(accum, $mkref!(self.end.pre_dec()))?;
                         accum = f(accum, $mkref!(self.end.pre_dec()))?;
