@@ -352,56 +352,52 @@ impl<T> Try for AlwaysOk<T> {
     fn from_ok(v: Self::Ok) -> Self { AlwaysOk(v) }
 }
 
-/// Used in methods that need to short-circuit on success instead of failure
-enum SearchResult<S, T> {
-    NotFound(S),
-    Found(T),
+/// Used to make try_fold closures more like normal loops
+#[derive(PartialEq)]
+enum LoopState<C, B> {
+    Continue(C),
+    Break(B),
 }
 
-impl<S, T> Try for SearchResult<S, T> {
-    type Ok = S;
-    type Error = T;
+impl<C, B> Try for LoopState<C, B> {
+    type Ok = C;
+    type Error = B;
     #[inline]
     fn into_result(self) -> Result<Self::Ok, Self::Error> {
         match self {
-            SearchResult::NotFound(y) => Ok(y),
-            SearchResult::Found(x) => Err(x),
+            LoopState::Continue(y) => Ok(y),
+            LoopState::Break(x) => Err(x),
         }
     }
     #[inline]
-    fn from_error(v: Self::Error) -> Self { SearchResult::Found(v) }
+    fn from_error(v: Self::Error) -> Self { LoopState::Break(v) }
     #[inline]
-    fn from_ok(v: Self::Ok) -> Self { SearchResult::NotFound(v) }
+    fn from_ok(v: Self::Ok) -> Self { LoopState::Continue(v) }
 }
 
-impl<S, T> SearchResult<S, T> {
+impl<C, B> LoopState<C, B> {
     #[inline]
-    fn is_found(self) -> bool {
-        if let SearchResult::Found(..) = self { true } else { false }
-    }
-
-    #[inline]
-    fn into_option(self) -> Option<T> {
+    fn break_value(self) -> Option<B> {
         match self {
-            SearchResult::NotFound(..) => None,
-            SearchResult::Found(x) => Some(x),
+            LoopState::Continue(..) => None,
+            LoopState::Break(x) => Some(x),
         }
     }
 }
 
-impl<R: Try> SearchResult<R::Ok, R> {
+impl<R: Try> LoopState<R::Ok, R> {
     #[inline]
     fn from_try(r: R) -> Self {
         match Try::into_result(r) {
-            Ok(v) => SearchResult::NotFound(v),
-            Err(v) => SearchResult::Found(Try::from_error(v)),
+            Ok(v) => LoopState::Continue(v),
+            Err(v) => LoopState::Break(Try::from_error(v)),
         }
     }
     #[inline]
     fn into_try(self) -> R {
         match self {
-            SearchResult::NotFound(v) => Try::from_ok(v),
-            SearchResult::Found(v) => v,
+            LoopState::Continue(v) => Try::from_ok(v),
+            LoopState::Break(v) => v,
         }
     }
 }
@@ -2049,10 +2045,10 @@ impl<I: Iterator, P> Iterator for TakeWhile<I, P>
             let p = &mut self.predicate;
             self.iter.try_fold(init, move |acc, x|{
                 if p(&x) {
-                    SearchResult::from_try(fold(acc, x))
+                    LoopState::from_try(fold(acc, x))
                 } else {
                     *flag = true;
-                    SearchResult::Found(Try::from_ok(acc))
+                    LoopState::Break(Try::from_ok(acc))
                 }
             }).into_try()
         }
@@ -2191,8 +2187,8 @@ impl<I> DoubleEndedIterator for Skip<I> where I: DoubleEndedIterator + ExactSize
             self.iter.try_rfold(init, move |acc, x| {
                 n -= 1;
                 let r = fold(acc, x);
-                if n == 0 { SearchResult::Found(r) }
-                else { SearchResult::from_try(r) }
+                if n == 0 { LoopState::Break(r) }
+                else { LoopState::from_try(r) }
             }).into_try()
         }
     }
@@ -2269,8 +2265,8 @@ impl<I> Iterator for Take<I> where I: Iterator{
             self.iter.try_fold(init, move |acc, x| {
                 *n -= 1;
                 let r = fold(acc, x);
-                if *n == 0 { SearchResult::Found(r) }
-                else { SearchResult::from_try(r) }
+                if *n == 0 { LoopState::Break(r) }
+                else { LoopState::from_try(r) }
             }).into_try()
         }
     }
@@ -2334,8 +2330,8 @@ impl<B, I, St, F> Iterator for Scan<I, St, F> where
         let f = &mut self.f;
         self.iter.try_fold(init, move |acc, x| {
             match f(state, x) {
-                None => SearchResult::Found(Try::from_ok(acc)),
-                Some(x) => SearchResult::from_try(fold(acc, x)),
+                None => LoopState::Break(Try::from_ok(acc)),
+                Some(x) => LoopState::from_try(fold(acc, x)),
             }
         }).into_try()
     }

@@ -11,7 +11,7 @@
 use cmp::Ordering;
 use ops::Try;
 
-use super::{AlwaysOk, SearchResult};
+use super::{AlwaysOk, LoopState};
 use super::{Chain, Cycle, Cloned, Enumerate, Filter, FilterMap, FlatMap, Fuse};
 use super::{Inspect, Map, Peekable, Scan, Skip, SkipWhile, StepBy, Take, TakeWhile, Rev};
 use super::{Zip, Sum, Product};
@@ -1522,9 +1522,9 @@ pub trait Iterator {
         Self: Sized, F: FnMut(Self::Item) -> bool
     {
         self.try_fold((), move |(), x| {
-            if f(x) { Ok(()) }
-            else { Err(()) }
-        }).is_ok()
+            if f(x) { LoopState::Continue(()) }
+            else { LoopState::Break(()) }
+        }) == LoopState::Continue(())
     }
 
     /// Tests if any element of the iterator matches a predicate.
@@ -1571,9 +1571,9 @@ pub trait Iterator {
         F: FnMut(Self::Item) -> bool
     {
         self.try_fold((), move |(), x| {
-            if f(x) { SearchResult::Found(()) }
-            else { SearchResult::NotFound(()) }
-        }).is_found()
+            if f(x) { LoopState::Break(()) }
+            else { LoopState::Continue(()) }
+        }) == LoopState::Break(())
     }
 
     /// Searches for an element of an iterator that satisfies a predicate.
@@ -1625,9 +1625,9 @@ pub trait Iterator {
         P: FnMut(&Self::Item) -> bool,
     {
         self.try_fold((), move |(), x| {
-            if predicate(&x) { SearchResult::Found(x) }
-            else { SearchResult::NotFound(()) }
-        }).into_option()
+            if predicate(&x) { LoopState::Break(x) }
+            else { LoopState::Continue(()) }
+        }).break_value()
     }
 
     /// Searches for an element in an iterator, returning its index.
@@ -1693,9 +1693,9 @@ pub trait Iterator {
     {
         // The addition might panic on overflow
         self.try_fold(0, move |i, x| {
-            if predicate(x) { SearchResult::Found(i) }
-            else { SearchResult::NotFound(i + 1) }
-        }).into_option()
+            if predicate(x) { LoopState::Break(i) }
+            else { LoopState::Continue(i + 1) }
+        }).break_value()
     }
 
     /// Searches for an element in an iterator from the right, returning its
@@ -1747,9 +1747,9 @@ pub trait Iterator {
         let n = self.len();
         self.try_rfold(n, move |i, x| {
             let i = i - 1;
-            if predicate(x) { SearchResult::Found(i) }
-            else { SearchResult::NotFound(i) }
-        }).into_option()
+            if predicate(x) { LoopState::Break(i) }
+            else { LoopState::Continue(i) }
+        }).break_value()
     }
 
     /// Returns the maximum element of an iterator.
@@ -2400,8 +2400,8 @@ impl<I: Iterator + ?Sized> SpecIterator for I {
 impl<I: Iterator + Sized> SpecIterator for I {
     fn spec_nth(&mut self, n: usize) -> Option<Self::Item> {
         self.try_fold(n, move |i, x| {
-            if i == 0 { SearchResult::Found(x) }
-            else { SearchResult::NotFound(i - 1) }
-        }).into_option()
+            if i == 0 { LoopState::Break(x) }
+            else { LoopState::Continue(i - 1) }
+        }).break_value()
    }
 }

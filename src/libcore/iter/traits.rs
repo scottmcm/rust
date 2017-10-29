@@ -10,7 +10,7 @@
 use ops::{Mul, Add, Try};
 use num::Wrapping;
 
-use super::{AlwaysOk, SearchResult};
+use super::{AlwaysOk, LoopState};
 
 /// Conversion from an `Iterator`.
 ///
@@ -577,9 +577,9 @@ pub trait DoubleEndedIterator: Iterator {
         P: FnMut(&Self::Item) -> bool
     {
         self.try_rfold((), move |(), x| {
-            if predicate(&x) { SearchResult::Found(x) }
-            else { SearchResult::NotFound(()) }
-        }).into_option()
+            if predicate(&x) { LoopState::Break(x) }
+            else { LoopState::Continue(()) }
+        }).break_value()
     }
 }
 
