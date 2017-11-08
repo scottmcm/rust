@@ -2380,14 +2380,39 @@ impl<'a, I: Iterator + ?Sized> Iterator for &'a mut I {
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         (**self).nth(n)
     }
+    fn try_fold<B, F, R>(&mut self, init: B, f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        self.spec_try_fold(init, f)
+    }
 }
 
+trait SpecTryFold : Iterator {
+    fn spec_try_fold<B, F, R>(&mut self, init: B, f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>;
+}
 
-trait SpecIterator : Iterator {
+impl<'a, I: Iterator + ?Sized> SpecTryFold for &'a mut I {
+    default fn spec_try_fold<B, F, R>(&mut self, init: B, f: F) -> R where
+        F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        self.try_fold(init, f)
+    }
+}
+
+impl<'a, I: Iterator + Sized> SpecTryFold for &'a mut I {
+    fn spec_try_fold<B, F, R>(&mut self, init: B, f: F) -> R where
+        F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        (**self).try_fold(init, f)
+    }
+}
+
+trait SpecNth : Iterator {
     fn spec_nth(&mut self, n: usize) -> Option<Self::Item>;
 }
 
-impl<I: Iterator + ?Sized> SpecIterator for I {
+impl<I: Iterator + ?Sized> SpecNth for I {
     default fn spec_nth(&mut self, mut n: usize) -> Option<Self::Item> {
         for x in self {
             if n == 0 { return Some(x) }
@@ -2397,7 +2422,7 @@ impl<I: Iterator + ?Sized> SpecIterator for I {
    }
 }
 
-impl<I: Iterator + Sized> SpecIterator for I {
+impl<I: Iterator + Sized> SpecNth for I {
     fn spec_nth(&mut self, n: usize) -> Option<Self::Item> {
         self.try_fold(n, move |i, x| {
             if i == 0 { LoopState::Break(x) }

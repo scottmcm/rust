@@ -586,6 +586,32 @@ pub trait DoubleEndedIterator: Iterator {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, I: DoubleEndedIterator + ?Sized> DoubleEndedIterator for &'a mut I {
     fn next_back(&mut self) -> Option<I::Item> { (**self).next_back() }
+    fn try_rfold<B, F, R>(&mut self, init: B, f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        self.spec_try_rfold(init, f)
+    }
+}
+
+trait SpecTryRfold : DoubleEndedIterator {
+    fn spec_try_rfold<B, F, R>(&mut self, init: B, f: F) -> R where
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>;
+}
+
+impl<'a, I: DoubleEndedIterator + ?Sized> SpecTryRfold for &'a mut I {
+    default fn spec_try_rfold<B, F, R>(&mut self, init: B, f: F) -> R where
+        F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        self.try_rfold(init, f)
+    }
+}
+
+impl<'a, I: DoubleEndedIterator + Sized> SpecTryRfold for &'a mut I {
+    fn spec_try_rfold<B, F, R>(&mut self, init: B, f: F) -> R where
+        F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    {
+        (**self).try_rfold(init, f)
+    }
 }
 
 /// An iterator that knows its exact length.

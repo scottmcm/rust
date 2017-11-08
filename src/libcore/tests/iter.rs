@@ -1701,3 +1701,24 @@ fn test_flat_map_try_folds() {
     assert_eq!(iter.try_rfold(0, i8::checked_add), None);
     assert_eq!(iter.next_back(), Some(35));
 }
+
+#[test]
+fn test_by_ref_folds() {
+    use core::ops::Add;
+    let a = [1, 2, 4, 8];
+    assert_eq!(a.iter().cloned().fold(0, i32::add), 15);
+
+    // by_ref on sized iterator
+    let mut iter = a.iter().cloned();
+    assert_eq!(iter.by_ref().fold(0, i32::add), 15);
+    let mut iter = a.iter().cloned();
+    assert_eq!(iter.by_ref().rfold(0, i32::add), 15);
+
+    // by_ref on unsized iterator trait object
+    let mut iter = a.iter().cloned();
+    let iter: &mut Iterator<Item=i32> = iter.by_ref();
+    assert_eq!(iter.fold(0, i32::add), 15);
+    let mut iter = a.iter().cloned();
+    let iter: &mut DoubleEndedIterator<Item=i32> = iter.by_ref();
+    assert_eq!(iter.rfold(0, i32::add), 15);
+}
