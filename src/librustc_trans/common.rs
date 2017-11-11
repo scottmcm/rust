@@ -37,6 +37,7 @@ use std::iter;
 
 use syntax;
 use syntax::abi::Abi;
+use syntax::attr;
 use syntax::symbol::InternedString;
 use syntax_pos::{Span, DUMMY_SP};
 
@@ -446,9 +447,15 @@ pub fn needs_i128_lowering(bcx: &Builder, lhs_t: Ty) -> bool {
 
     match lhs_t.sty {
         TypeVariants::TyInt(syntax::ast::IntTy::I128) |
-        TypeVariants::TyUint(syntax::ast::UintTy::U128) => true,
-        _ => false,
+        TypeVariants::TyUint(syntax::ast::UintTy::U128) => (),
+        _ => return false,
     }
+
+    if attr::contains_name(bcx.ccx.tcx().hir.krate_attrs(), "compiler_builtins") {
+        return false; // FIXME
+    }
+
+    true
 }
 
 // To avoid UB from LLVM, these two functions mask RHS with an
@@ -458,13 +465,20 @@ pub fn needs_i128_lowering(bcx: &Builder, lhs_t: Ty) -> bool {
 
 pub fn build_unchecked_lshift<'a, 'tcx>(
     bcx: &Builder<'a, 'tcx>,
+    lhs_t: Ty<'tcx>,
     lhs: ValueRef,
     rhs: ValueRef
 ) -> ValueRef {
     let rhs = base::cast_shift_expr_rhs(bcx, hir::BinOp_::BiShl, lhs, rhs);
     // #1877, #10183: Ensure that input is always valid
     let rhs = shift_mask_rhs(bcx, rhs);
-    bcx.shl(lhs, rhs)
+    if needs_i128_lowering(bcx, lhs_t) {
+        let rhs = bcx.trunc(rhs, Type::i32(bcx.ccx));
+        let intrinsic = bcx.ccx.get_intrinsic("__ashlti3");
+        bcx.call(intrinsic, &[lhs, rhs], None)
+    } else {
+        bcx.shl(lhs, rhs)
+    }
 }
 
 pub fn build_unchecked_rshift<'a, 'tcx>(
@@ -474,7 +488,12 @@ pub fn build_unchecked_rshift<'a, 'tcx>(
     // #1877, #10183: Ensure that input is always valid
     let rhs = shift_mask_rhs(bcx, rhs);
     let is_signed = lhs_t.is_signed();
-    if is_signed {
+    if needs_i128_lowering(bcx, lhs_t) {
+        let rhs = bcx.trunc(rhs, Type::i32(bcx.ccx));
+        let name = if is_signed { "__ashrti3" } else { "__lshrti3" };
+        let intrinsic = bcx.ccx.get_intrinsic(name);
+        bcx.call(intrinsic, &[lhs, rhs], None)
+    } else if is_signed {
         bcx.ashr(lhs, rhs)
     } else {
         bcx.lshr(lhs, rhs)

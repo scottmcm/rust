@@ -589,7 +589,7 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
             mir::BinOp::BitAnd => bcx.and(lhs, rhs),
             mir::BinOp::BitXor => bcx.xor(lhs, rhs),
             mir::BinOp::Offset => bcx.inbounds_gep(lhs, &[rhs]),
-            mir::BinOp::Shl => common::build_unchecked_lshift(bcx, lhs, rhs),
+            mir::BinOp::Shl => common::build_unchecked_lshift(bcx, input_ty, lhs, rhs),
             mir::BinOp::Shr => common::build_unchecked_rshift(bcx, input_ty, lhs, rhs),
             mir::BinOp::Ne | mir::BinOp::Lt | mir::BinOp::Gt |
             mir::BinOp::Eq | mir::BinOp::Le | mir::BinOp::Ge => if is_nil {
