@@ -435,6 +435,9 @@ pub struct TargetOptions {
 
     /// Default number of codegen units to use in debug mode
     pub default_codegen_units: Option<u64>,
+
+    /// Whether or not to lower 128-bit operations to compiler_builtins calls
+    pub i128_lowering: bool,
 }
 
 impl Default for TargetOptions {
@@ -498,6 +501,7 @@ impl Default for TargetOptions {
             stack_probes: false,
             min_global_align: None,
             default_codegen_units: None,
+            i128_lowering: true, // FIXME
         }
     }
 }

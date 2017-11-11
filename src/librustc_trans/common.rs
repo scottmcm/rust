@@ -27,7 +27,7 @@ use monomorphize;
 use type_::Type;
 use value::Value;
 use rustc::traits;
-use rustc::ty::{self, Ty, TyCtxt};
+use rustc::ty::{self, Ty, TyCtxt, TypeVariants};
 use rustc::ty::layout::{Layout, LayoutTyper};
 use rustc::ty::subst::{Kind, Subst, Substs};
 use rustc::hir;
@@ -35,6 +35,7 @@ use rustc::hir;
 use libc::{c_uint, c_char};
 use std::iter;
 
+use syntax;
 use syntax::abi::Abi;
 use syntax::symbol::InternedString;
 use syntax_pos::{Span, DUMMY_SP};
@@ -435,6 +436,18 @@ pub fn langcall(tcx: TyCtxt,
                 None => tcx.sess.fatal(&msg[..]),
             }
         }
+    }
+}
+
+pub fn needs_i128_lowering(bcx: &Builder, lhs_t: Ty) -> bool {
+    if !bcx.sess().host.options.i128_lowering {
+        return false;
+    }
+
+    match lhs_t.sty {
+        TypeVariants::TyInt(syntax::ast::IntTy::I128) |
+        TypeVariants::TyUint(syntax::ast::UintTy::U128) => true,
+        _ => false,
     }
 }
 

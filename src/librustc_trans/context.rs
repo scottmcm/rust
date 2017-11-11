@@ -864,6 +864,16 @@ fn declare_intrinsic(ccx: &CrateContext, key: &str) -> Option<ValueRef> {
     ifn!("llvm.assume", fn(i1) -> void);
     ifn!("llvm.prefetch", fn(i8p, t_i32, t_i32, t_i32) -> void);
 
+    // `intrinsics!` from compiler-builtins for TargetOptions::i128_lowering
+    ifn!("__multi3", fn(t_i128, t_i128) -> t_i128);
+    ifn!("__divti3", fn(t_i128, t_i128) -> t_i128);
+    ifn!("__modti3", fn(t_i128, t_i128) -> t_i128);
+    ifn!("__udivti3", fn(t_i128, t_i128) -> t_i128);
+    ifn!("__umodti3", fn(t_i128, t_i128) -> t_i128);
+    ifn!("__ashlti3", fn(t_i128, t_i32) -> t_i128);
+    ifn!("__ashrti3", fn(t_i128, t_i32) -> t_i128);
+    ifn!("__lshrti3", fn(t_i128, t_i32) -> t_i128);
+
     if ccx.sess().opts.debuginfo != NoDebugInfo {
         ifn!("llvm.dbg.declare", fn(Type::metadata(ccx), Type::metadata(ccx)) -> void);
         ifn!("llvm.dbg.value", fn(Type::metadata(ccx), t_i64, Type::metadata(ccx)) -> void);

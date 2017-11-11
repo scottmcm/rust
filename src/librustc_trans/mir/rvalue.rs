@@ -557,11 +557,18 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
             },
             mir::BinOp::Mul => if is_float {
                 bcx.fmul(lhs, rhs)
+            } else if common::needs_i128_lowering(bcx, input_ty) {
+                let intrinsic = bcx.ccx.get_intrinsic("__multi3");
+                bcx.call(intrinsic, &[lhs, rhs], None)
             } else {
                 bcx.mul(lhs, rhs)
             },
             mir::BinOp::Div => if is_float {
                 bcx.fdiv(lhs, rhs)
+            } else if common::needs_i128_lowering(bcx, input_ty) {
+                let name = if is_signed { "__divti3" } else { "__udivti3" };
+                let intrinsic = bcx.ccx.get_intrinsic(name);
+                bcx.call(intrinsic, &[lhs, rhs], None)
             } else if is_signed {
                 bcx.sdiv(lhs, rhs)
             } else {
@@ -569,6 +576,10 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
             },
             mir::BinOp::Rem => if is_float {
                 bcx.frem(lhs, rhs)
+            } else if common::needs_i128_lowering(bcx, input_ty) {
+                let name = if is_signed { "__modti3" } else { "__umodti3" };
+                let intrinsic = bcx.ccx.get_intrinsic(name);
+                bcx.call(intrinsic, &[lhs, rhs], None)
             } else if is_signed {
                 bcx.srem(lhs, rhs)
             } else {
