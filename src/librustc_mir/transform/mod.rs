@@ -36,6 +36,7 @@ pub mod add_call_guards;
 pub mod promote_consts;
 pub mod qualify_consts;
 pub mod dump_mir;
+pub mod sroa;
 pub mod deaggregator;
 pub mod instcombine;
 pub mod copy_prop;
@@ -244,6 +245,7 @@ fn optimized_mir<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> &'tcx 
         // Optimizations begin.
         inline::Inline,
         instcombine::InstCombine,
+        sroa::Sroa,
         deaggregator::Deaggregator,
         copy_prop::CopyPropagation,
         simplify::SimplifyLocals,
