@@ -318,8 +318,6 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 BinOp::Add => Op::Add,
                 BinOp::Sub => Op::Sub,
                 BinOp::Mul => Op::Mul,
-                BinOp::Shl => Op::Shl,
-                BinOp::Shr => Op::Shr,
                 _ => {
                     bug!("MIR build_binary_op: {:?} is not checkable", op)
                 }
@@ -329,6 +327,24 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                                 AssertMessage::Math(err), span);
 
             block.and(Rvalue::Use(Operand::Consume(val)))
+        } else if self.hir.check_overflow() && (op == BinOp::Shl || op == BinOp::Shr) {
+            let rhs_ty = rhs.ty(&self.local_decls, self.hir.tcx());
+            let masked = self.temp(rhs_ty, span);
+            let mask = self.shiftmask_literal(span, ty, rhs_ty);
+            self.cfg.push_assign(block, source_info, &masked,
+                Rvalue::BinaryOp(BinOp::BitAnd, rhs.clone(), mask));
+
+            let not_overflow = self.temp(bool_ty, span);
+            self.cfg.push_assign(block, source_info, &not_overflow,
+                Rvalue::BinaryOp(BinOp::Ne, rhs.clone(), Operand::Consume(masked)));
+
+            let err = ConstMathErr::Overflow(
+                if op == BinOp::Shl { Op::Shl } else { Op::Shr }
+            );
+            block = self.assert(block, Operand::Consume(not_overflow), false,
+                                AssertMessage::Math(err), span);
+
+            block.and(Rvalue::BinaryOp(op, lhs, rhs))
         } else {
             if ty.is_integral() && (op == BinOp::Div || op == BinOp::Rem) {
                 // Checking division and remainder is more complex, since we 1. always check
@@ -450,5 +466,81 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         };
 
         self.literal_operand(span, ty, literal)
+    }
+
+    // Helper to get the mask for shifting the specifed type by the specified type.
+    // The mask is at most 0b0111_1111, so fits in any signed or unsigned type.
+    fn shiftmask_literal(&mut self, span: Span, lhs_ty: Ty<'tcx>, rhs_ty: Ty<'tcx>)
+        -> Operand<'tcx>
+    {
+        let mask = match lhs_ty.sty {
+            ty::TyInt(ity) => {
+                match ity {
+                    ast::IntTy::I8  => 7,
+                    ast::IntTy::I16 => 15,
+                    ast::IntTy::I32 => 31,
+                    ast::IntTy::I64 => 63,
+                    ast::IntTy::I128 => 127,
+                    ast::IntTy::Is => {
+                        let int_ty = self.hir.tcx().sess.target.isize_ty;
+                        match int_ty {
+                            ast::IntTy::I16 => 15,
+                            ast::IntTy::I32 => 31,
+                            ast::IntTy::I64 => 63,
+                            _ => unreachable!()
+                        }
+                    }
+                }
+            }
+            ty::TyUint(ity) => {
+                match ity {
+                    ast::UintTy::U8  => 7,
+                    ast::UintTy::U16 => 15,
+                    ast::UintTy::U32 => 31,
+                    ast::UintTy::U64 => 63,
+                    ast::UintTy::U128 => 127,
+                    ast::UintTy::Us => {
+                        let uint_ty = self.hir.tcx().sess.target.usize_ty;
+                        match uint_ty {
+                            ast::UintTy::U16 => 15,
+                            ast::UintTy::U32 => 31,
+                            ast::UintTy::U64 => 63,
+                            _ => unreachable!()
+                        }
+                    }
+                }
+            }
+            _ => {
+                span_bug!(span, "Invalid lhs type for shiftmask_literal: `{:?}`", lhs_ty)
+            }
+        };
+
+        let literal = match rhs_ty.sty {
+            ty::TyInt(ity) => {
+                let isize_ty = self.hir.tcx().sess.target.isize_ty;
+                let val = ConstInt::new_signed(mask as _, ity, isize_ty).unwrap();
+                Literal::Value {
+                    value: self.hir.tcx().mk_const(ty::Const {
+                        val: ConstVal::Integral(val),
+                        ty: rhs_ty
+                    })
+                }
+            }
+            ty::TyUint(uty) => {
+                let usize_ty = self.hir.tcx().sess.target.usize_ty;
+                let val = ConstInt::new_unsigned(mask as _, uty, usize_ty).unwrap();
+                Literal::Value {
+                    value: self.hir.tcx().mk_const(ty::Const {
+                        val: ConstVal::Integral(val),
+                        ty: rhs_ty
+                    })
+                }
+            }
+            _ => {
+                span_bug!(span, "Invalid rhs type for shiftmask_literal: `{:?}`", rhs_ty)
+            }
+        };
+
+        self.literal_operand(span, rhs_ty, literal)
     }
 }

@@ -1425,7 +1425,7 @@ impl BinOp {
     pub fn is_checkable(self) -> bool {
         use self::BinOp::*;
         match self {
-            Add | Sub | Mul | Shl | Shr => true,
+            Add | Sub | Mul => true,
             _ => false
         }
     }

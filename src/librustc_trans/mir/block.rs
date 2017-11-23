@@ -298,14 +298,13 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
                 // with #[rustc_inherit_overflow_checks] and inlined from
                 // another crate (mostly core::num generic/#[inline] fns),
                 // while the current crate doesn't use overflow checks.
-                // NOTE: Unlike binops, negation doesn't have its own
-                // checked operation, just a comparison with the minimum
-                // value, so we have to check for the assert message.
+                // LLVM will happily simplify the .with.overflow intrinsics
+                // down to the normal instructions, so we just need to
+                // ignore the assertion and goto past it.
                 if !bcx.ccx.check_overflow() {
                     use rustc_const_math::ConstMathErr::Overflow;
-                    use rustc_const_math::Op::Neg;
 
-                    if let mir::AssertMessage::Math(Overflow(Neg)) = *msg {
+                    if let mir::AssertMessage::Math(Overflow(_)) = *msg {
                         const_cond = Some(expected);
                     }
                 }

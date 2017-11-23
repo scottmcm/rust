@@ -21,8 +21,8 @@ use std::{u128, i128};
 use base;
 use builder::Builder;
 use callee;
-use common::{self, val_ty};
-use common::{C_bool, C_u8, C_i32, C_u32, C_u64, C_null, C_usize, C_uint, C_uint_big};
+use common;
+use common::{C_bool, C_u8, C_i32, C_u32, C_u64, C_usize, C_uint, C_uint_big};
 use consts;
 use monomorphize;
 use type_::Type;
@@ -632,15 +632,6 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
                                       lhs: ValueRef,
                                       rhs: ValueRef,
                                       input_ty: Ty<'tcx>) -> OperandValue {
-        // This case can currently arise only from functions marked
-        // with #[rustc_inherit_overflow_checks] and inlined from
-        // another crate (mostly core::num generic/#[inline] fns),
-        // while the current crate doesn't use overflow checks.
-        if !bcx.ccx.check_overflow() {
-            let val = self.trans_scalar_binop(bcx, op, lhs, rhs, input_ty);
-            return OperandValue::Pair(val, C_bool(bcx.ccx, false));
-        }
-
         // First try performing the operation on constants, which
         // will only succeed if both operands are constant.
         // This is necessary to determine when an overflow Assert
@@ -663,17 +654,6 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
 
                 (bcx.extract_value(res, 0),
                  bcx.extract_value(res, 1))
-            }
-            mir::BinOp::Shl | mir::BinOp::Shr => {
-                let lhs_llty = val_ty(lhs);
-                let rhs_llty = val_ty(rhs);
-                let invert_mask = common::shift_mask_val(&bcx, lhs_llty, rhs_llty, true);
-                let outer_bits = bcx.and(rhs, invert_mask);
-
-                let of = bcx.icmp(llvm::IntNE, outer_bits, C_null(rhs_llty));
-                let val = self.trans_scalar_binop(bcx, op, lhs, rhs, input_ty);
-
-                (val, of)
             }
             _ => {
                 bug!("Operator `{:?}` is not a checkable operator", op)

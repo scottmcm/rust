@@ -968,8 +968,6 @@ pub fn const_scalar_checked_binop<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
             mir::BinOp::Add => lhs + rhs,
             mir::BinOp::Sub => lhs - rhs,
             mir::BinOp::Mul => lhs * rhs,
-            mir::BinOp::Shl => lhs << rhs,
-            mir::BinOp::Shr => lhs >> rhs,
             _ => {
                 bug!("Operator `{:?}` is not a checkable operator", op)
             }
@@ -977,8 +975,7 @@ pub fn const_scalar_checked_binop<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
 
         let of = match result {
             Ok(_) => false,
-            Err(ConstMathErr::Overflow(_)) |
-            Err(ConstMathErr::ShiftNegative) => true,
+            Err(ConstMathErr::Overflow(_)) => true,
             Err(err) => {
                 bug!("Operator `{:?}` on `{:?}` and `{:?}` errored: {}",
                      op, lhs, rhs, err.description());
