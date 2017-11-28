@@ -39,6 +39,7 @@ pub mod qualify_consts;
 pub mod dump_mir;
 pub mod deaggregator;
 pub mod instcombine;
+pub mod const_prop;
 pub mod copy_prop;
 pub mod generator;
 pub mod inline;
@@ -254,6 +255,7 @@ fn optimized_mir<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> &'tcx 
         inline::Inline,
         instcombine::InstCombine,
         deaggregator::Deaggregator,
+        const_prop::ConstPropagation,
         copy_prop::CopyPropagation,
         simplify::SimplifyLocals,
 
