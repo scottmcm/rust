@@ -257,6 +257,8 @@ fn optimized_mir<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> &'tcx 
         deaggregator::Deaggregator,
         const_prop::ConstPropagation,
         copy_prop::CopyPropagation,
+        simplify_branches::SimplifyBranches::new("PostPropagation"),
+        simplify::SimplifyCfg::new("PostPropagation"),
         simplify::SimplifyLocals,
 
         generator::StateTransform,

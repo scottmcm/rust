@@ -11,7 +11,12 @@
 #[inline(never)]
 fn nop<T>(_: T) {}
 
-fn test_simple(x: [u32; 1]) -> u32 {
+fn test_simple() -> i32 {
+    let x = 4;
+    x
+}
+
+fn test_index(x: [u32; 1]) -> u32 {
     x[0]
 }
 
@@ -47,7 +52,8 @@ fn test_borrowed() -> u32 {
 
 fn main() {
     // Make sure the functions actually get instantiated.
-    test_simple([0]);
+    test_simple();
+    test_index([0]);
     test_after_branches(true);
     test_diffent_values(true);
     test_reused([1, 2]);
@@ -57,13 +63,24 @@ fn main() {
 // END RUST SOURCE
 
 // START rustc.test_simple.ConstPropagation.before.mir
+//     _1 = const 4i32;
+//     ...
+//     _2 = _1;
+//     _0 = move _2;
+// END rustc.test_simple.ConstPropagation.before.mir
+// START rustc.test_simple.ConstPropagation.after.mir
+//     _2 = const 4i32;
+//     _0 = move _2;
+// END rustc.test_simple.ConstPropagation.after.mir
+
+// START rustc.test_index.ConstPropagation.before.mir
 //     _3 = const 0usize;
 //     _4 = const 1usize;
 //     _5 = Lt(_3, _4);
-// END rustc.test_simple.ConstPropagation.before.mir
-// START rustc.test_simple.ConstPropagation.after.mir
-//     _5 = Lt(const 0usize, const 1usize);
-// END rustc.test_simple.ConstPropagation.after.mir
+// END rustc.test_index.ConstPropagation.before.mir
+// START rustc.test_index.ConstPropagation.after.mir
+//     _5 = const true;
+// END rustc.test_index.ConstPropagation.after.mir
 
 // START rustc.test_after_branches.ConstPropagation.before.mir
 //     _2 = const 1u32;
@@ -105,9 +122,13 @@ fn main() {
 //     _12 = Lt(_10, _11);
 // END rustc.test_reused.ConstPropagation.before.mir
 // START rustc.test_reused.ConstPropagation.after.mir
-//     _7 = Lt(const 0usize, const 2usize);
+//     _5 = const 0usize;
 //     ...
-//     _12 = Lt(const 1usize, const 2usize);
+//     _7 = const true;
+//     ...
+//     _10 = const 1usize;
+//     ...
+//     _12 = const true;
 // END rustc.test_reused.ConstPropagation.after.mir
 
 // START rustc.test_borrowed.ConstPropagation.before.mir

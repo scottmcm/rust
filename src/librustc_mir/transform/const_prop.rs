@@ -26,12 +26,15 @@
 //! It also assumes someone else will clean up unused locals later, if any.
 
 use rustc::hir;
+use rustc::middle::const_val::ConstVal;
 use rustc::mir::*;
 use rustc::mir::visit::{LvalueContext, MutVisitor};
-use rustc::ty::TyCtxt;
+use rustc::ty::{Const, TyCtxt};
 use rustc_data_structures::control_flow_graph::iterate::reverse_post_order;
 use rustc_data_structures::indexed_vec::IndexVec;
 use rustc_data_structures::indexed_set::IdxSetBuf;
+use std::cmp::Ordering;
+use syntax_pos::Span;
 use transform::{MirPass, MirSource};
 
 pub struct ConstPropagation;
@@ -89,7 +92,7 @@ impl MirPass for ConstPropagation {
                     .unwrap_or_else(|| IndexVec::from_elem_n(None, local_decls.len()))
             };
             debug!("Starting ConstPropagation on {:?} with values {:?}", block, current_values);
-            let mut visitor = ConstPropagator { ever_borrowed, current_values };
+            let mut visitor = ConstPropagator { tcx, ever_borrowed, current_values, span: None };
             visitor.visit_basic_block_data(block, &mut basic_blocks[block]);
             block_values[block] = Some(visitor.current_values);
         }
@@ -132,12 +135,14 @@ fn combine_values<'tcx>(mut x: LocalValues<'tcx>, y: &LocalValues<'tcx>)
 }
 
 type LocalValues<'tcx> = IndexVec<Local, Option<Box<Constant<'tcx>>>>;
-struct ConstPropagator<'a, 'tcx> {
-    ever_borrowed: &'a mut IdxSetBuf<Local>,
+struct ConstPropagator<'a, 'b, 'tcx: 'a> {
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    ever_borrowed: &'b mut IdxSetBuf<Local>,
     current_values: LocalValues<'tcx>,
+    span: Option<Span>,
 }
 
-impl<'a, 'tcx> ConstPropagator<'a, 'tcx> {
+impl<'a, 'b, 'tcx> ConstPropagator<'a, 'b, 'tcx> {
     fn mark_borrowed(&mut self, lvalue: &Lvalue<'tcx>) {
         match *lvalue {
             Lvalue::Local(local) => {
@@ -150,9 +155,36 @@ impl<'a, 'tcx> ConstPropagator<'a, 'tcx> {
             }
         }
     }
+
+    // FIXME: MIRI knows how to do this better than I do
+    fn eval_bin_op(&mut self, bin_op: BinOp, lhs: &Operand<'tcx>, rhs: &Operand<'tcx>)
+        -> Option<(Constant<'tcx>)>
+    {
+        let lhs = to_const(lhs)?;
+        let rhs = to_const(rhs)?;
+
+        let lhs = lhs.val.to_const_int()?;
+        let rhs = rhs.val.to_const_int()?;
+
+        match bin_op {
+            BinOp::Lt => {
+                let r: bool = lhs.try_cmp(rhs).ok()? == Ordering::Less;
+                let value = self.tcx.mk_const(Const {
+                    ty: self.tcx.types.bool,
+                    val: ConstVal::Bool(r),
+                });
+                Some(Constant {
+                    span: self.span.unwrap(),
+                    ty: value.ty,
+                    literal: Literal::Value { value },
+                })
+            }
+            _ => None,
+        }
+    }
 }
 
-impl<'a, 'tcx> MutVisitor<'tcx> for ConstPropagator<'a, 'tcx> {
+impl<'a, 'b, 'tcx> MutVisitor<'tcx> for ConstPropagator<'a, 'b, 'tcx> {
     fn visit_assign(
         &mut self,
         _block: BasicBlock,
@@ -180,11 +212,14 @@ impl<'a, 'tcx> MutVisitor<'tcx> for ConstPropagator<'a, 'tcx> {
         operand: &mut Operand<'tcx>,
         _location: Location
     ) {
-        // Normal Move optimizations will simplify those, so only look at Copy
-        if let Operand::Copy(Lvalue::Local(local)) = *operand {
-            if let Some(ref constant) = self.current_values[local] {
-                *operand = Operand::Constant(Box::clone(constant));
+        match *operand {
+            Operand::Copy(Lvalue::Local(local)) |
+            Operand::Move(Lvalue::Local(local)) => {
+                if let Some(ref constant) = self.current_values[local] {
+                    *operand = Operand::Constant(Box::clone(constant));
+                }
             }
+            _ => {}
         }
 
         // Intentionally don't recurse, so the code below doesn't invalidate
@@ -209,12 +244,32 @@ impl<'a, 'tcx> MutVisitor<'tcx> for ConstPropagator<'a, 'tcx> {
     ) {
         self.super_rvalue(rvalue, location);
 
-        match *rvalue {
-            Rvalue::Ref(_, _, ref lvalue) => {
-                self.mark_borrowed(lvalue);
-            }
-            // FIXME: fold operators if their arguments are now const
-            _ => {}
+        let constant =
+            match *rvalue {
+                Rvalue::Ref(_, _, ref lvalue) => {
+                    self.mark_borrowed(lvalue);
+                    None
+                }
+                Rvalue::BinaryOp(bin_op, ref lhs, ref rhs) => {
+                    self.eval_bin_op(bin_op, lhs, rhs)
+                }
+                _ => None,
+            };
+        if let Some(constant) = constant {
+            *rvalue = Rvalue::Use(Operand::Constant(box constant));
         }
     }
+
+    fn visit_source_info(&mut self, source_info: &mut SourceInfo) {
+        self.span = Some(source_info.span);
+    }
+}
+
+fn to_const<'tcx>(operand: &Operand<'tcx>) -> Option<&'tcx Const<'tcx>> {
+    if let Operand::Constant(box ref constant) = *operand {
+        if let Literal::Value { value } = constant.literal {
+            return Some(value);
+        }
+    }
+    None
 }
