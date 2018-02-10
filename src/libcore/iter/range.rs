@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use convert::TryFrom;
+use convert::{TryFrom, TryInto};
 use mem;
 use ops::{self, Add, Sub, Try};
 use usize;
@@ -28,6 +28,8 @@ pub trait Step: Clone + PartialOrd + Sized {
     ///
     /// Returns `None` if it is not possible to calculate `steps_between`
     /// without overflow.
+    ///
+    /// Panics if `end` is not reachable from `start`.
     fn steps_between(start: &Self, end: &Self) -> Option<usize>;
 
     /// Replaces this step with `1`, returning itself
@@ -78,14 +80,9 @@ macro_rules! step_impl_unsigned {
                    issue = "42168")]
         impl Step for $t {
             #[inline]
-            #[allow(trivial_numeric_casts)]
             fn steps_between(start: &$t, end: &$t) -> Option<usize> {
-                if *start < *end {
-                    // Note: We assume $t <= usize here
-                    Some((*end - *start) as usize)
-                } else {
-                    Some(0)
-                }
+                assert!(*start <= *end);
+                (*end - *start).try_into().ok()
             }
 
             #[inline]
@@ -110,14 +107,10 @@ macro_rules! step_impl_signed {
             #[inline]
             #[allow(trivial_numeric_casts)]
             fn steps_between(start: &$t, end: &$t) -> Option<usize> {
-                if *start < *end {
-                    // Note: We assume $t <= isize here
-                    // Use .wrapping_sub and cast to usize to compute the
-                    // difference that may not fit inside the range of isize.
-                    Some((*end as isize).wrapping_sub(*start as isize) as usize)
-                } else {
-                    Some(0)
-                }
+                assert!(*start <= *end);
+                // The distance will definitely fit in the unsigned type,
+                // but needs wrapping to be able to calculate it in either.
+                ((end.wrapping_sub(*start)) as $unsigned).try_into().ok()
             }
 
             #[inline]
@@ -144,38 +137,8 @@ macro_rules! step_impl_signed {
     )*)
 }
 
-macro_rules! step_impl_no_between {
-    ($($t:ty)*) => ($(
-        #[unstable(feature = "step_trait",
-                   reason = "likely to be replaced by finer-grained traits",
-                   issue = "42168")]
-        impl Step for $t {
-            #[inline]
-            fn steps_between(_start: &Self, _end: &Self) -> Option<usize> {
-                None
-            }
-
-            #[inline]
-            fn add_usize(&self, n: usize) -> Option<Self> {
-                self.checked_add(n as $t)
-            }
-
-            step_identical_methods!();
-        }
-    )*)
-}
-
-step_impl_unsigned!(usize u8 u16 u32);
-step_impl_signed!([isize: usize] [i8: u8] [i16: u16] [i32: u32]);
-#[cfg(target_pointer_width = "64")]
-step_impl_unsigned!(u64);
-#[cfg(target_pointer_width = "64")]
-step_impl_signed!([i64: u64]);
-// If the target pointer width is not 64-bits, we
-// assume here that it is less than 64-bits.
-#[cfg(not(target_pointer_width = "64"))]
-step_impl_no_between!(u64 i64);
-step_impl_no_between!(u128 i128);
+step_impl_unsigned!(usize u8 u16 u32 u64 u128);
+step_impl_signed!([isize: usize] [i8: u8] [i16: u16] [i32: u32] [i64: u64] [i128: u128]);
 
 macro_rules! range_exact_iter_impl {
     ($($t:ty)*) => ($(
@@ -233,9 +196,13 @@ impl<A: Step> Iterator for ops::Range<A> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
+        if !(self.start <= self.end) {
+            return (0, Some(0));
+        }
+
         match Step::steps_between(&self.start, &self.end) {
             Some(hint) => (hint, Some(hint)),
-            None => (0, None)
+            None => (usize::MAX, None)
         }
     }
 
@@ -356,7 +323,7 @@ impl<A: Step> Iterator for ops::RangeInclusive<A> {
 
         match Step::steps_between(&self.start, &self.end) {
             Some(hint) => (hint.saturating_add(1), hint.checked_add(1)),
-            None => (0, None),
+            None => (usize::MAX, None),
         }
     }
 
