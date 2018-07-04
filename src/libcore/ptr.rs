@@ -226,7 +226,7 @@ unsafe fn swap_nonoverlapping_bytes(x: *mut u8, y: *mut u8, len: usize) {
 
     if i < len {
         // Swap any remaining bytes
-        let mut t: UnalignedBlock = mem::uninitialized();
+        let mut t = UnalignedBlock(0, 0, 0, 0);
         let rem = len - i;
 
         let t = &mut t as *mut _ as *mut u8;
