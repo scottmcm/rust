@@ -1860,8 +1860,11 @@ impl<T, I> SpecExtend<T, I> for Vec<T>
         let mut vector = match iterator.next() {
             None => return Vec::new(),
             Some(element) => {
-                let (lower, _) = iterator.size_hint();
-                let mut vector = Vec::with_capacity(lower.saturating_add(1));
+                let additional = match iterator.size_hint() {
+                    (lower, Some(upper)) if lower >= upper/2 => upper,
+                    (lower, _) => lower,
+                };
+                let mut vector = Vec::with_capacity(additional.saturating_add(1));
                 unsafe {
                     ptr::write(vector.get_unchecked_mut(0), element);
                     vector.set_len(1);
