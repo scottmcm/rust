@@ -1852,6 +1852,8 @@ impl<T, I> SpecExtend<T, I> for Vec<T>
     where I: Iterator<Item=T>,
 {
     default fn from_iter(mut iterator: I) -> Self {
+        let check_shrink;
+
         // Unroll the first iteration, as the vector is going to be
         // expanded on this iteration in every case when the iterable is not
         // empty, but the loop in extend_desugared() is not going to see the
@@ -1860,8 +1862,42 @@ impl<T, I> SpecExtend<T, I> for Vec<T>
         let mut vector = match iterator.next() {
             None => return Vec::new(),
             Some(element) => {
-                let (lower, _) = iterator.size_hint();
-                let mut vector = Vec::with_capacity(lower.saturating_add(1));
+                let mut vector = match iterator.size_hint() {
+                    (lower, Some(upper)) if lower >= upper / 2 => {
+                        // The hint isn't going to waste more than the doubling
+                        // strategy could, so just allocate it.  This also handles
+                        // the lower==upper case, where it gives the exact size.
+                        check_shrink = false;
+                        Vec::with_capacity(upper.saturating_add(1))
+                    }
+                    (lower, None) => {
+                        // With no upper bound, we can't guess well, so don't bother.
+                        check_shrink = false;
+                        Vec::with_capacity(lower.saturating_add(1))
+                    }
+                    (lower, Some(upper)) => {
+                        // Pick somewhere inbetween to hopefully avoid too much
+                        // reallocation later.  This is particularly important
+                        // for adapters like filter, which need to give a lower
+                        // bound of zero, but have a helpful upper bound.  And
+                        // the peeling of the first element earlier means that
+                        // the iterator had at least one element, so it's not
+                        // unreasonable to expect it to have more.
+                        // But this can result in more memory use, so don't die
+                        // for OOM and don't keep too much memory allocated.
+                        check_shrink = true;
+                        let mut v = Vec::new();
+                        // The guess is a rough approximation of sqrt(lower*upper).
+                        // As an example, if the range we have is 10..=1000, then
+                        // we'll try to reserve space for 126 elements.
+                        let mag_diff = lower.leading_zeros() - upper.leading_zeros();
+                        let guess = upper >> (mag_diff / 2);
+                        match v.try_reserve(guess.saturating_add(1)) {
+                            Ok(_) => v,
+                            Err(_) => Vec::with_capacity(lower.saturating_add(1)),
+                        }
+                    }
+                };
                 unsafe {
                     ptr::write(vector.get_unchecked_mut(0), element);
                     vector.set_len(1);
@@ -1870,6 +1906,10 @@ impl<T, I> SpecExtend<T, I> for Vec<T>
             }
         };
         <Vec<T> as SpecExtend<T, I>>::spec_extend(&mut vector, iterator);
+        if check_shrink && vector.len() <= vector.capacity() / 2 {
+            // The guess earlier was way too high, so give up the extra memory.
+            vector.shrink_to_fit();
+        }
         vector
     }
 
