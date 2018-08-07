@@ -1018,21 +1018,21 @@ impl<T, E> IntoIterator for Result<T, E> {
 }
 
 #[stable(since = "1.4.0", feature = "result_iter")]
-impl<'a, T, E> IntoIterator for &'a Result<T, E> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
+impl<T, E> IntoIterator for &Result<T, E> {
+    type Item = &T;
+    type IntoIter = Iter<'_, T>;
 
-    fn into_iter(self) -> Iter<'a, T> {
+    fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
 #[stable(since = "1.4.0", feature = "result_iter")]
-impl<'a, T, E> IntoIterator for &'a mut Result<T, E> {
-    type Item = &'a mut T;
-    type IntoIter = IterMut<'a, T>;
+impl<T, E> IntoIterator for &mut Result<T, E> {
+    type Item = &mut T;
+    type IntoIter = IterMut<'_, T>;
 
-    fn into_iter(self) -> IterMut<'a, T> {
+    fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
     }
 }

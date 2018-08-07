@@ -191,21 +191,21 @@ macro_rules! array_impls {
             }
 
             #[stable(feature = "rust1", since = "1.0.0")]
-            impl<'a, T> IntoIterator for &'a [T; $N] {
-                type Item = &'a T;
-                type IntoIter = Iter<'a, T>;
+            impl<T> IntoIterator for &[T; $N] {
+                type Item = &T;
+                type IntoIter = Iter<'_, T>;
 
-                fn into_iter(self) -> Iter<'a, T> {
+                fn into_iter(self) -> Self::IntoIter {
                     self.iter()
                 }
             }
 
             #[stable(feature = "rust1", since = "1.0.0")]
-            impl<'a, T> IntoIterator for &'a mut [T; $N] {
-                type Item = &'a mut T;
-                type IntoIter = IterMut<'a, T>;
+            impl<T> IntoIterator for &mut [T; $N] {
+                type Item = &mut T;
+                type IntoIter = IterMut<'_, T>;
 
-                fn into_iter(self) -> IterMut<'a, T> {
+                fn into_iter(self) -> Self::IntoIter {
                     self.iter_mut()
                 }
             }

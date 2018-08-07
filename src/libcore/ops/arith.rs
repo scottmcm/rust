@@ -494,8 +494,8 @@ div_impl_float! { f32 f64 }
 ///     slice: &'a [T],
 /// }
 ///
-/// impl<'a, T> Rem<usize> for SplitSlice<'a, T> {
-///     type Output = SplitSlice<'a, T>;
+/// impl<T> Rem<usize> for SplitSlice<'_, T> {
+///     type Output = SplitSlice<'_, T>;
 ///
 ///     fn rem(self, modulus: usize) -> Self {
 ///         let len = self.slice.len();

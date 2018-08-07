@@ -53,10 +53,10 @@ pub struct Utf8LossyChunk<'a> {
     pub broken: &'a [u8],
 }
 
-impl<'a> Iterator for Utf8LossyChunksIter<'a> {
-    type Item = Utf8LossyChunk<'a>;
+impl Iterator for Utf8LossyChunksIter<'_> {
+    type Item = Utf8LossyChunk<'_>;
 
-    fn next(&mut self) -> Option<Utf8LossyChunk<'a>> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.source.len() == 0 {
             return None;
         }
