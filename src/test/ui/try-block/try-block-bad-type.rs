@@ -12,9 +12,11 @@
 
 #![feature(try_blocks)]
 
+struct MyErrorType;
+
 pub fn main() {
-    let res: Result<u32, i32> = try {
-        Err("")?; //~ ERROR the trait bound `i32: std::convert::From<&str>` is not satisfied
+    let res: Result<u32, MyErrorType> = try {
+        Err("")?; //~ ERROR the trait bound `MyErrorType: std::convert::From<&str>` is not satisfied
         5
     };
 
