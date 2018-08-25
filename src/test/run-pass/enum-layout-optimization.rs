@@ -56,4 +56,10 @@ fn main() {
     assert!(mem::size_of::<i32>() == mem::size_of::<EnumNewtype<i32>>());
     assert!(mem::size_of::<i32>() < mem::size_of::<EnumNewtypeU8<i32>>());
     assert!(mem::size_of::<i32>() < mem::size_of::<EnumNewtypeC<i32>>());
+
+    assert_eq!(mem::size_of::<Nullable<&u8>>(), mem::size_of::<usize>());
+    assert_eq!(mem::size_of::<Nullable<Nullable<&u8>>>(), 2*mem::size_of::<usize>());
+
+    assert_eq!(mem::size_of::<Nullable<&u16>>(), mem::size_of::<usize>());
+    assert_eq!(mem::size_of::<Nullable<Nullable<&u16>>>(), mem::size_of::<usize>());
 }
