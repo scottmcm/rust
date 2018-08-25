@@ -108,6 +108,11 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                 bits
             },
             Scalar::Ptr(_) => {
+                if scalar.value == Primitive::Pointer {
+                    // It's ok to put a pointer into a pointer
+                    return Ok(());
+                }
+
                 let ptr_size = self.memory.pointer_size();
                 let ptr_max = u128::max_value() >> (128 - ptr_size.bits());
                 return if lo > hi {
