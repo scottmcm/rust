@@ -511,7 +511,17 @@ impl<'a, 'tcx> LayoutCx<'tcx, TyCtxt<'a, 'tcx, 'tcx>> {
             ty::RawPtr(ty::TypeAndMut { ty: pointee, .. }) => {
                 let mut data_ptr = scalar_unit(Pointer);
                 if !ty.is_unsafe_ptr() {
-                    data_ptr.valid_range = 1..=*data_ptr.valid_range.end();
+                    let (size, align) = self.layout_of(pointee).ok()
+                        .map_or((0, 1), |layout| (
+                            u128::from(layout.details.size.bytes()),
+                            layout.details.align.abi().into(),
+                        ));
+                    // A reference is dereferencable, so there must be enough
+                    // address space after it to `offset` by its size.
+                    let unaligned_end = *data_ptr.valid_range.end() - size;
+                    // A reference is aligned and non-null, so start from an
+                    // aligned pointer and round down the end to its alignment.
+                    data_ptr.valid_range = align..=(unaligned_end & !(align - 1));
                 }
 
                 let pointee = tcx.normalize_erasing_regions(param_env, pointee);
