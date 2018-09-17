@@ -788,6 +788,7 @@ impl<T> Vec<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub unsafe fn set_len(&mut self, len: usize) {
+        debug_assert!(len <= self.capacity());
         self.len = len;
     }
 
