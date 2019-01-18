@@ -2,7 +2,7 @@
             reason = "futures in libcore are unstable",
             issue = "50547")]
 
-use ops::Try;
+use ops::{Bubble, ControlFlow, Try, TryBlock};
 use result::Result;
 
 /// Indicates whether a value is available or if the current task has been
@@ -101,6 +101,48 @@ impl<T, E> Try for Poll<Result<T, E>> {
     }
 }
 
+impl<T, E> TryBlock for Poll<Result<T, E>> {
+    type Inner = Poll<T>;
+    fn done(x: Self::Inner) -> Self {
+        x.map(Ok)
+    }
+}
+
+impl<T, U, E, F> Bubble<Poll<Result<U, F>>> for Poll<Result<T, E>>
+    where F: From<E>
+{
+    fn bubble(self) -> ControlFlow<Self::Inner, Poll<Result<U, F>>> {
+        match self {
+            Poll::Ready(Ok(x)) => ControlFlow::Continue(Poll::Ready(x)),
+            Poll::Ready(Err(e)) => ControlFlow::Break(Poll::Ready(Err(From::from(e)))),
+            Poll::Pending => ControlFlow::Continue(Poll::Pending),
+        }
+    }
+}
+
+impl<T, U, E, F> Bubble<Result<U, F>> for Poll<Result<T, E>>
+    where F: From<E>
+{
+    fn bubble(self) -> ControlFlow<Self::Inner, Result<U, F>> {
+        match self {
+            Poll::Ready(Ok(x)) => ControlFlow::Continue(Poll::Ready(x)),
+            Poll::Ready(Err(e)) => ControlFlow::Break(Err(From::from(e))),
+            Poll::Pending => ControlFlow::Continue(Poll::Pending),
+        }
+    }
+}
+
+impl<T, U, E, F> Bubble<Poll<Result<U, F>>> for Result<T, E>
+    where F: From<E>
+{
+    fn bubble(self) -> ControlFlow<Self::Inner, Poll<Result<U, F>>> {
+        match self {
+            Ok(x) => ControlFlow::Continue(x),
+            Err(e) => ControlFlow::Break(Poll::Ready(Err(From::from(e)))),
+        }
+    }
+}
+
 impl<T, E> Try for Poll<Option<Result<T, E>>> {
     type Ok = Poll<Option<T>>;
     type Error = E;
@@ -123,5 +165,74 @@ impl<T, E> Try for Poll<Option<Result<T, E>>> {
     #[inline]
     fn from_ok(x: Self::Ok) -> Self {
         x.map(|x| x.map(Ok))
+    }
+}
+
+impl<T, E> TryBlock for Poll<Option<Result<T, E>>> {
+    type Inner = Poll<Option<T>>;
+    fn done(x: Self::Inner) -> Self {
+        x.map(|x| x.map(Ok))
+    }
+}
+
+impl<T, U, E, F> Bubble<Poll<Option<Result<U, F>>>> for Poll<Option<Result<T, E>>>
+    where F: From<E>
+{
+    fn bubble(self) -> ControlFlow<Self::Inner, Poll<Option<Result<U, F>>>> {
+        match self {
+            Poll::Ready(Some(Ok(x))) => ControlFlow::Continue(Poll::Ready(Some(x))),
+            Poll::Ready(Some(Err(e))) => ControlFlow::Break(Poll::Ready(Some(Err(From::from(e))))),
+            Poll::Ready(None) => ControlFlow::Continue(Poll::Ready(None)),
+            Poll::Pending => ControlFlow::Continue(Poll::Pending),
+        }
+    }
+}
+
+impl<T, U, E, F> Bubble<Poll<Result<U, F>>> for Poll<Option<Result<T, E>>>
+    where F: From<E>
+{
+    fn bubble(self) -> ControlFlow<Self::Inner, Poll<Result<U, F>>> {
+        match self {
+            Poll::Ready(Some(Ok(x))) => ControlFlow::Continue(Poll::Ready(Some(x))),
+            Poll::Ready(Some(Err(e))) => ControlFlow::Break(Poll::Ready(Err(From::from(e)))),
+            Poll::Ready(None) => ControlFlow::Continue(Poll::Ready(None)),
+            Poll::Pending => ControlFlow::Continue(Poll::Pending),
+        }
+    }
+}
+
+impl<T, U, E, F> Bubble<Poll<Option<Result<U, F>>>> for Poll<Result<T, E>>
+    where F: From<E>
+{
+    fn bubble(self) -> ControlFlow<Self::Inner, Poll<Option<Result<U, F>>>> {
+        match self {
+            Poll::Ready(Ok(x)) => ControlFlow::Continue(Poll::Ready(x)),
+            Poll::Ready(Err(e)) => ControlFlow::Break(Poll::Ready(Some(Err(From::from(e))))),
+            Poll::Pending => ControlFlow::Continue(Poll::Pending),
+        }
+    }
+}
+
+impl<T, U, E, F> Bubble<Result<U, F>> for Poll<Option<Result<T, E>>>
+    where F: From<E>
+{
+    fn bubble(self) -> ControlFlow<Self::Inner, Result<U, F>> {
+        match self {
+            Poll::Ready(Some(Ok(x))) => ControlFlow::Continue(Poll::Ready(Some(x))),
+            Poll::Ready(Some(Err(e))) => ControlFlow::Break(Err(From::from(e))),
+            Poll::Ready(None) => ControlFlow::Continue(Poll::Ready(None)),
+            Poll::Pending => ControlFlow::Continue(Poll::Pending),
+        }
+    }
+}
+
+impl<T, U, E, F> Bubble<Poll<Option<Result<U, F>>>> for Result<T, E>
+    where F: From<E>
+{
+    fn bubble(self) -> ControlFlow<Self::Inner, Poll<Option<Result<U, F>>>> {
+        match self {
+            Ok(x) => ControlFlow::Continue(x),
+            Err(e) => ControlFlow::Break(Poll::Ready(Some(Err(From::from(e))))),
+        }
     }
 }
