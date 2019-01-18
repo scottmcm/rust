@@ -1395,3 +1395,21 @@ impl<T> ops::Try for Option<T> {
         None
     }
 }
+
+#[unstable(feature = "try_trait_v2", issue = "42327")]
+impl<T> ops::TryBlock for Option<T> {
+    type Inner = T;
+    fn done(x: T) -> Self {
+        Some(x)
+    }
+}
+
+#[unstable(feature = "try_trait_v2", issue = "42327")]
+impl<T> ops::Bubble for Option<T> {
+    fn bubble(self) -> ops::ControlFlow<T, Self> {
+        match self {
+            Some(x) => ops::ControlFlow::Continue(x),
+            x => ops::ControlFlow::Break(x),
+        }
+    }
+}

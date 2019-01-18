@@ -26,7 +26,7 @@ use fmt;
 use intrinsics::assume;
 use isize;
 use iter::*;
-use ops::{FnMut, Try, self};
+use ops::{FnMut, Bubble, TryBlock, self};
 use option::Option;
 use option::Option::{None, Some};
 use result::Result;
@@ -2884,7 +2884,7 @@ macro_rules! iterator {
 
             #[inline]
             fn try_fold<B, F, R>(&mut self, init: B, mut f: F) -> R where
-                Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+                Self: Sized, F: FnMut(B, Self::Item) -> R, R: Bubble<Inner=B>
             {
                 // manual unrolling is needed when there are conditional exits from the loop
                 let mut accum = init;
@@ -2899,7 +2899,7 @@ macro_rules! iterator {
                         accum = f(accum, & $( $mut_ )* *self.post_inc_start(1))?;
                     }
                 }
-                Try::from_ok(accum)
+                TryBlock::done(accum)
             }
 
             #[inline]
@@ -2972,7 +2972,7 @@ macro_rules! iterator {
 
             #[inline]
             fn try_rfold<B, F, R>(&mut self, init: B, mut f: F) -> R where
-                Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+                Self: Sized, F: FnMut(B, Self::Item) -> R, R: Bubble<Inner=B>
             {
                 // manual unrolling is needed when there are conditional exits from the loop
                 let mut accum = init;
@@ -2988,7 +2988,7 @@ macro_rules! iterator {
                         accum = f(accum, & $( $mut_ )* *self.pre_dec_end(1))?;
                     }
                 }
-                Try::from_ok(accum)
+                TryBlock::done(accum)
             }
 
             #[inline]

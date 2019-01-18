@@ -1,7 +1,6 @@
 use cmp::Ordering;
-use ops::Try;
+use ops::{Bubble, ControlFlow, TryBlock};
 
-use super::LoopState;
 use super::{Chain, Cycle, Copied, Cloned, Enumerate, Filter, FilterMap, Fuse};
 use super::{Flatten, FlatMap, flatten_compat};
 use super::{Inspect, Map, Peekable, Scan, Skip, SkipWhile, StepBy, Take, TakeWhile, Rev};
@@ -1568,13 +1567,13 @@ pub trait Iterator {
     #[inline]
     #[stable(feature = "iterator_try_fold", since = "1.27.0")]
     fn try_fold<B, F, R>(&mut self, init: B, mut f: F) -> R where
-        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Bubble<Inner=B>
     {
         let mut accum = init;
         while let Some(x) = self.next() {
             accum = f(accum, x)?;
         }
-        Try::from_ok(accum)
+        TryBlock::done(accum)
     }
 
     /// An iterator method that applies a fallible function to each item in the
@@ -1607,7 +1606,7 @@ pub trait Iterator {
     #[inline]
     #[stable(feature = "iterator_try_fold", since = "1.27.0")]
     fn try_for_each<F, R>(&mut self, mut f: F) -> R where
-        Self: Sized, F: FnMut(Self::Item) -> R, R: Try<Ok=()>
+        Self: Sized, F: FnMut(Self::Item) -> R, R: Bubble<Inner=()>
     {
         self.try_fold((), move |(), x| f(x))
     }
@@ -1730,9 +1729,9 @@ pub trait Iterator {
         Self: Sized, F: FnMut(Self::Item) -> bool
     {
         self.try_for_each(move |x| {
-            if f(x) { LoopState::Continue(()) }
-            else { LoopState::Break(()) }
-        }) == LoopState::Continue(())
+            if f(x) { ControlFlow::Continue(()) }
+            else { ControlFlow::Break(()) }
+        }) == ControlFlow::Continue(())
     }
 
     /// Tests if any element of the iterator matches a predicate.
@@ -1779,9 +1778,9 @@ pub trait Iterator {
         F: FnMut(Self::Item) -> bool
     {
         self.try_for_each(move |x| {
-            if f(x) { LoopState::Break(()) }
-            else { LoopState::Continue(()) }
-        }) == LoopState::Break(())
+            if f(x) { ControlFlow::Break(()) }
+            else { ControlFlow::Continue(()) }
+        }) == ControlFlow::Break(())
     }
 
     /// Searches for an element of an iterator that satisfies a predicate.
@@ -1833,8 +1832,8 @@ pub trait Iterator {
         P: FnMut(&Self::Item) -> bool,
     {
         self.try_for_each(move |x| {
-            if predicate(&x) { LoopState::Break(x) }
-            else { LoopState::Continue(()) }
+            if predicate(&x) { ControlFlow::Break(x) }
+            else { ControlFlow::Continue(()) }
         }).break_value()
     }
 
@@ -1861,8 +1860,8 @@ pub trait Iterator {
     {
         self.try_for_each(move |x| {
             match f(x) {
-                Some(x) => LoopState::Break(x),
-                None => LoopState::Continue(()),
+                Some(x) => ControlFlow::Break(x),
+                None => ControlFlow::Continue(()),
             }
         }).break_value()
     }
@@ -1930,8 +1929,8 @@ pub trait Iterator {
     {
         // The addition might panic on overflow
         self.try_fold(0, move |i, x| {
-            if predicate(x) { LoopState::Break(i) }
-            else { LoopState::Continue(i + 1) }
+            if predicate(x) { ControlFlow::Break(i) }
+            else { ControlFlow::Continue(i + 1) }
         }).break_value()
     }
 
@@ -1984,8 +1983,8 @@ pub trait Iterator {
         let n = self.len();
         self.try_rfold(n, move |i, x| {
             let i = i - 1;
-            if predicate(x) { LoopState::Break(i) }
-            else { LoopState::Continue(i) }
+            if predicate(x) { ControlFlow::Break(i) }
+            else { ControlFlow::Continue(i) }
         }).break_value()
     }
 

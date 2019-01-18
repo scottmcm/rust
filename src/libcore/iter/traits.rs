@@ -1,7 +1,5 @@
-use ops::{Mul, Add, Try};
+use ops::{Mul, Add, Bubble, ControlFlow, TryBlock};
 use num::Wrapping;
-
-use super::LoopState;
 
 /// Conversion from an `Iterator`.
 ///
@@ -512,13 +510,13 @@ pub trait DoubleEndedIterator: Iterator {
     where
         Self: Sized,
         F: FnMut(B, Self::Item) -> R,
-        R: Try<Ok=B>
+        R: Bubble<Inner=B>
     {
         let mut accum = init;
         while let Some(x) = self.next_back() {
             accum = f(accum, x)?;
         }
-        Try::from_ok(accum)
+        TryBlock::done(accum)
     }
 
     /// An iterator method that reduces the iterator's elements to a single,
@@ -632,8 +630,8 @@ pub trait DoubleEndedIterator: Iterator {
         P: FnMut(&Self::Item) -> bool
     {
         self.try_rfold((), move |(), x| {
-            if predicate(&x) { LoopState::Break(x) }
-            else { LoopState::Continue(()) }
+            if predicate(&x) { ControlFlow::Break(x) }
+            else { ControlFlow::Continue(()) }
         }).break_value()
     }
 }

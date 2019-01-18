@@ -189,6 +189,9 @@ pub use self::range::{RangeInclusive, RangeToInclusive, RangeBounds, Bound};
 #[unstable(feature = "try_trait", issue = "42327")]
 pub use self::try::Try;
 
+#[unstable(feature = "try_trait_v2", issue = "42327")]
+pub use self::try::{Bubble, ControlFlow, TryBlock};
+
 #[unstable(feature = "generator_trait", issue = "43122")]
 pub use self::generator::{Generator, GeneratorState};
 
