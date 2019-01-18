@@ -3852,8 +3852,8 @@ impl<'a> LoweringContext<'a> {
                         },
                         |x: P<hir::Expr>| x.into_inner(),
                     );
-                    block.expr = Some(this.wrap_in_try_constructor(
-                        "from_ok", tail, unstable_span));
+                    block.expr = Some(this.wrap_in_ops_constructor(
+                        "TryBlock", "done", tail, unstable_span));
                     hir::ExprKind::Block(P(block), None)
                 })
             }
@@ -4418,24 +4418,24 @@ impl<'a> LoweringContext<'a> {
             ExprKind::Try(ref sub_expr) => {
                 // into:
                 //
-                // match Try::into_result(<expr>) {
-                //     Ok(val) => #[allow(unreachable_code)] val,
-                //     Err(err) => #[allow(unreachable_code)]
-                //                 // If there is an enclosing `catch {...}`
-                //                 break 'catch_target Try::from_error(From::from(err)),
-                //                 // Otherwise
-                //                 return Try::from_error(From::from(err)),
+                // match Bubble::bubble(<expr>) {
+                //     Continue(val) => #[allow(unreachable_code)] val,
+                //     Break(err) => #[allow(unreachable_code)]
+                //                   // If there is an enclosing `catch {...}`
+                //                   break 'catch_target err,
+                //                   // Otherwise
+                //                   return err,
                 // }
 
                 let unstable_span =
                     self.allow_internal_unstable(CompilerDesugaringKind::QuestionMark, e.span);
 
-                // `Try::into_result(<expr>)`
+                // `Bubble::bubble(<expr>)`
                 let discr = {
                     // expand <expr>
                     let sub_expr = self.lower_expr(sub_expr);
 
-                    let path = &["ops", "Try", "into_result"];
+                    let path = &["ops", "Bubble", "bubble"];
                     let path = P(self.expr_std_path(
                             unstable_span, path, None, ThinVec::new()));
                     P(self.expr_call(e.span, path, hir_vec![sub_expr]))
@@ -4454,8 +4454,8 @@ impl<'a> LoweringContext<'a> {
                 };
                 let attrs = vec![attr];
 
-                // `Ok(val) => #[allow(unreachable_code)] val,`
-                let ok_arm = {
+                // `Continue(val) => #[allow(unreachable_code)] val,`
+                let continue_arm = {
                     let val_ident = self.str_to_ident("val");
                     let val_pat = self.pat_ident(e.span, val_ident);
                     let val_expr = P(self.expr_ident_with_attrs(
@@ -4464,26 +4464,17 @@ impl<'a> LoweringContext<'a> {
                         val_pat.id,
                         ThinVec::from(attrs.clone()),
                     ));
-                    let ok_pat = self.pat_ok(e.span, val_pat);
+                    let continue_pat = self.pat_continue(unstable_span, val_pat);
 
-                    self.arm(hir_vec![ok_pat], val_expr)
+                    self.arm(hir_vec![continue_pat], val_expr)
                 };
 
-                // `Err(err) => #[allow(unreachable_code)]
-                //              return Try::from_error(From::from(err)),`
-                let err_arm = {
+                // `Break(err) => #[allow(unreachable_code)]
+                //                return err,`
+                let break_arm = {
                     let err_ident = self.str_to_ident("err");
                     let err_local = self.pat_ident(e.span, err_ident);
-                    let from_expr = {
-                        let path = &["convert", "From", "from"];
-                        let from = P(self.expr_std_path(
-                                e.span, path, None, ThinVec::new()));
-                        let err_expr = self.expr_ident(e.span, err_ident, err_local.id);
-
-                        self.expr_call(e.span, from, hir_vec![err_expr])
-                    };
-                    let from_err_expr =
-                        self.wrap_in_try_constructor("from_error", from_expr, unstable_span);
+                    let err_expr = self.expr_ident(e.span, err_ident, err_local.id);
                     let thin_attrs = ThinVec::from(attrs);
                     let catch_scope = self.catch_scopes.last().map(|x| *x);
                     let ret_expr = if let Some(catch_node) = catch_scope {
@@ -4494,21 +4485,21 @@ impl<'a> LoweringContext<'a> {
                                     label: None,
                                     target_id: Ok(catch_node),
                                 },
-                                Some(from_err_expr),
+                                Some(P(err_expr)),
                             ),
                             thin_attrs,
                         ))
                     } else {
-                        P(self.expr(e.span, hir::ExprKind::Ret(Some(from_err_expr)), thin_attrs))
+                        P(self.expr(e.span, hir::ExprKind::Ret(Some(P(err_expr))), thin_attrs))
                     };
 
-                    let err_pat = self.pat_err(e.span, err_local);
-                    self.arm(hir_vec![err_pat], ret_expr)
+                    let break_pat = self.pat_break(unstable_span, err_local);
+                    self.arm(hir_vec![break_pat], ret_expr)
                 };
 
                 hir::ExprKind::Match(
                     discr,
-                    hir_vec![err_arm, ok_arm],
+                    hir_vec![break_arm, continue_arm],
                     hir::MatchSource::TryDesugar,
                 )
             }
@@ -4851,12 +4842,12 @@ impl<'a> LoweringContext<'a> {
         }
     }
 
-    fn pat_ok(&mut self, span: Span, pat: P<hir::Pat>) -> P<hir::Pat> {
-        self.pat_std_enum(span, &["result", "Result", "Ok"], hir_vec![pat])
+    fn pat_continue(&mut self, span: Span, pat: P<hir::Pat>) -> P<hir::Pat> {
+        self.pat_std_enum(span, &["ops", "ControlFlow", "Continue"], hir_vec![pat])
     }
 
-    fn pat_err(&mut self, span: Span, pat: P<hir::Pat>) -> P<hir::Pat> {
-        self.pat_std_enum(span, &["result", "Result", "Err"], hir_vec![pat])
+    fn pat_break(&mut self, span: Span, pat: P<hir::Pat>) -> P<hir::Pat> {
+        self.pat_std_enum(span, &["ops", "ControlFlow", "Break"], hir_vec![pat])
     }
 
     fn pat_some(&mut self, span: Span, pat: P<hir::Pat>) -> P<hir::Pat> {
@@ -5102,13 +5093,14 @@ impl<'a> LoweringContext<'a> {
         )
     }
 
-    fn wrap_in_try_constructor(
+    fn wrap_in_ops_constructor(
         &mut self,
+        trait_name: &'static str,
         method: &'static str,
         e: hir::Expr,
         unstable_span: Span,
     ) -> P<hir::Expr> {
-        let path = &["ops", "Try", method];
+        let path = &["ops", trait_name, method];
         let from_err = P(self.expr_std_path(unstable_span, path, None,
                                             ThinVec::new()));
         P(self.expr_call(e.span, from_err, hir_vec![e]))

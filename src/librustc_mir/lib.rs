@@ -20,7 +20,7 @@ Rust MIR: a lowered representation of Rust. Also: an experiment!
 #![feature(rustc_attrs)]
 #![feature(never_type)]
 #![feature(specialization)]
-#![feature(try_trait)]
+#![feature(try_trait_v2)]
 #![feature(unicode_internals)]
 #![feature(step_trait)]
 #![feature(slice_concat_ext)]
@@ -58,7 +58,7 @@ extern crate smallvec;
 // replace this with real try blocks.
 macro_rules! try_block {
     ($($inside:tt)*) => (
-        (||{ ::std::ops::Try::from_ok({ $($inside)* }) })()
+        (||{ ::std::ops::TryBlock::done({ $($inside)* }) })()
     )
 }
 

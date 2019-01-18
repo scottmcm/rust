@@ -1273,10 +1273,10 @@ impl<T, E> ops::TryBlock for Result<T, E> {
 }
 
 #[unstable(feature = "try_trait_v2", issue = "42327")]
-impl<T, E, F> ops::Bubble<Result<T, F>> for Result<T, E>
+impl<T, U, E, F> ops::Bubble<Result<U, F>> for Result<T, E>
     where F: From<E>
 {
-    fn bubble(self) -> ops::ControlFlow<T, Result<T, F>> {
+    fn bubble(self) -> ops::ControlFlow<T, Result<U, F>> {
         match self {
             Ok(x) => ops::ControlFlow::Continue(x),
             Err(x) => ops::ControlFlow::Break(Err(From::from(x))),

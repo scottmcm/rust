@@ -124,6 +124,7 @@ pub trait TryBlock {
     fn done(inner: Self::Inner) -> Self;
 }
 
+#[cfg(stage0)] // So `?` is usable through this trait while bootstrapping
 #[unstable(feature = "try_trait_v2", issue = "42327")]
 #[doc(alias = "?")]
 /// Still needs docs
@@ -133,18 +134,15 @@ pub trait Bubble<T = Self> : TryBlock + Try<Ok=<Self as TryBlock>::Inner> {
     fn bubble(self) -> ControlFlow<Self::Inner, T>;
 }
 
-/*
-When the lowering is updated...
-
+#[cfg(not(stage0))]
 #[unstable(feature = "try_trait_v2", issue = "42327")]
 #[doc(alias = "?")]
 /// Still needs docs
-pub trait Bubble<T = Self> : TryBlock {
+pub trait Bubble<Other = Self> : TryBlock {
     /// Still needs docs
     #[unstable(feature = "try_trait_v2", issue = "42327")]
-    fn bubble(self) -> ControlFlow<Self::Inner, T>;
+    fn bubble(self) -> ControlFlow<Self::Inner, Other>;
 }
-*/
 
 #[unstable(feature = "try_trait_v2", issue = "42327")]
 impl<C, B> TryBlock for ControlFlow<C, B> {

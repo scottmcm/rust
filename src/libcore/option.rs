@@ -1405,11 +1405,11 @@ impl<T> ops::TryBlock for Option<T> {
 }
 
 #[unstable(feature = "try_trait_v2", issue = "42327")]
-impl<T> ops::Bubble for Option<T> {
-    fn bubble(self) -> ops::ControlFlow<T, Self> {
+impl<T, U> ops::Bubble<Option<U>> for Option<T> {
+    fn bubble(self) -> ops::ControlFlow<T, Option<U>> {
         match self {
             Some(x) => ops::ControlFlow::Continue(x),
-            x => ops::ControlFlow::Break(x),
+            None => ops::ControlFlow::Break(None),
         }
     }
 }
