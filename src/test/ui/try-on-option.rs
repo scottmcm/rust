@@ -4,12 +4,12 @@ fn main() {}
 
 fn foo() -> Result<u32, ()> {
     let x: Option<u32> = None;
-    x?; //~ the trait bound
+    x?; //~ mismatched types
     Ok(22)
 }
 
 fn bar() -> u32 {
     let x: Option<u32> = None;
-    x?; //~ the `?` operator
+    x?; //~ mismatched types
     22
 }

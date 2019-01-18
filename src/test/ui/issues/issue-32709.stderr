@@ -4,7 +4,8 @@ error[E0277]: the trait bound `(): std::convert::From<{integer}>` is not satisfi
 LL |     Err(5)?; //~ ERROR
    |     ^^^^^^^ the trait `std::convert::From<{integer}>` is not implemented for `()`
    |
-   = note: required by `std::convert::From::from`
+   = note: required because of the requirements on the impl of `std::ops::Bubble<std::result::Result<i32, ()>>` for `std::result::Result<_, {integer}>`
+   = note: required by `std::ops::Bubble::bubble`
 
 error: aborting due to previous error
 

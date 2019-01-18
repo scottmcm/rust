@@ -116,11 +116,20 @@ impl<C, B> Try for ControlFlow<C, B> {
 
 /// Still needs docs
 #[unstable(feature = "try_trait_v2", issue = "42327")]
+#[rustc_on_unimplemented(
+   on(from_desugaring="?",
+      message="the `?` operator can only be used in a \
+               function that returns `Result` or `Option` \
+               (or another type that implements `{TryBlock}`)",
+      label="cannot use the `?` operator in a function that returns `{Self}`")
+)]
 #[doc(alias = "try")]
 pub trait TryBlock {
     /// Still needs docs
+    #[unstable(feature = "try_trait_v2", issue = "42327")]
     type Inner;
     /// Still needs docs
+    #[unstable(feature = "try_trait_v2", issue = "42327")]
     fn done(inner: Self::Inner) -> Self;
 }
 
@@ -128,7 +137,7 @@ pub trait TryBlock {
 #[unstable(feature = "try_trait_v2", issue = "42327")]
 #[doc(alias = "?")]
 /// Still needs docs
-pub trait Bubble<T = Self> : TryBlock + Try<Ok=<Self as TryBlock>::Inner> {
+pub trait Bubble<T: Bubble = Self> : TryBlock + Try<Ok=<Self as TryBlock>::Inner> {
     /// Still needs docs
     #[unstable(feature = "try_trait_v2", issue = "42327")]
     fn bubble(self) -> ControlFlow<Self::Inner, T>;
@@ -136,9 +145,15 @@ pub trait Bubble<T = Self> : TryBlock + Try<Ok=<Self as TryBlock>::Inner> {
 
 #[cfg(not(stage0))]
 #[unstable(feature = "try_trait_v2", issue = "42327")]
+#[rustc_on_unimplemented(
+   on(from_desugaring="?",
+      message="the `?` operator can only be applied to values \
+               that implement `{Bubble}`",
+      label="the `?` operator cannot be applied to type `{Self}`")
+)]
 #[doc(alias = "?")]
 /// Still needs docs
-pub trait Bubble<Other = Self> : TryBlock {
+pub trait Bubble<Other: Bubble = Self> : TryBlock {
     /// Still needs docs
     #[unstable(feature = "try_trait_v2", issue = "42327")]
     fn bubble(self) -> ControlFlow<Self::Inner, Other>;
