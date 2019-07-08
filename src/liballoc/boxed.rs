@@ -750,9 +750,6 @@ impl<I: ExactSizeIterator + ?Sized> ExactSizeIterator for Box<I> {
     fn len(&self) -> usize {
         (**self).len()
     }
-    fn is_empty(&self) -> bool {
-        (**self).is_empty()
-    }
 }
 
 #[stable(feature = "fused", since = "1.26.0")]

@@ -396,7 +396,7 @@ impl<A: Step> Iterator for ops::RangeInclusive<A> {
     {
         self.compute_is_empty();
 
-        if self.is_empty() {
+        if ops::RangeInclusive::is_empty(self) {
             return Try::from_ok(init);
         }
 
@@ -485,7 +485,7 @@ impl<A: Step> DoubleEndedIterator for ops::RangeInclusive<A> {
     {
         self.compute_is_empty();
 
-        if self.is_empty() {
+        if ops::RangeInclusive::is_empty(self) {
             return Try::from_ok(init);
         }
 

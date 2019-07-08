@@ -339,7 +339,7 @@ pub use self::sources::{Successors, successors};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::traits::{FromIterator, IntoIterator, DoubleEndedIterator, Extend};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::traits::{ExactSizeIterator, Sum, Product};
+pub use self::traits::{ExactSizeIterator, KnowsEmptyIterator, Sum, Product};
 #[stable(feature = "fused", since = "1.26.0")]
 pub use self::traits::FusedIterator;
 #[unstable(feature = "trusted_len", issue = "37572")]

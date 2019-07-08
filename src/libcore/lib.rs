@@ -86,6 +86,7 @@
 #![feature(iter_once_with)]
 #![feature(lang_items)]
 #![feature(link_llvm_intrinsics)]
+#![feature(marker_trait_attr)]
 #![feature(never_type)]
 #![feature(nll)]
 #![feature(bind_by_move_pattern_guards)]

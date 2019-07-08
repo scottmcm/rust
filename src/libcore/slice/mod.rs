@@ -3084,11 +3084,6 @@ macro_rules! iterator {
             fn len(&self) -> usize {
                 len!(self)
             }
-
-            #[inline(always)]
-            fn is_empty(&self) -> bool {
-                is_empty!(self)
-            }
         }
 
         #[stable(feature = "rust1", since = "1.0.0")]
@@ -4471,11 +4466,7 @@ impl<'a, T> DoubleEndedIterator for ChunksExact<'a, T> {
 }
 
 #[stable(feature = "chunks_exact", since = "1.31.0")]
-impl<T> ExactSizeIterator for ChunksExact<'_, T> {
-    fn is_empty(&self) -> bool {
-        self.v.is_empty()
-    }
-}
+impl<T> ExactSizeIterator for ChunksExact<'_, T> {}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<T> TrustedLen for ChunksExact<'_, T> {}
@@ -4587,11 +4578,7 @@ impl<'a, T> DoubleEndedIterator for ChunksExactMut<'a, T> {
 }
 
 #[stable(feature = "chunks_exact", since = "1.31.0")]
-impl<T> ExactSizeIterator for ChunksExactMut<'_, T> {
-    fn is_empty(&self) -> bool {
-        self.v.is_empty()
-    }
-}
+impl<T> ExactSizeIterator for ChunksExactMut<'_, T> {}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<T> TrustedLen for ChunksExactMut<'_, T> {}
@@ -5020,11 +5007,7 @@ impl<'a, T> DoubleEndedIterator for RChunksExact<'a, T> {
 }
 
 #[stable(feature = "rchunks", since = "1.31.0")]
-impl<'a, T> ExactSizeIterator for RChunksExact<'a, T> {
-    fn is_empty(&self) -> bool {
-        self.v.is_empty()
-    }
-}
+impl<'a, T> ExactSizeIterator for RChunksExact<'a, T> {}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<T> TrustedLen for RChunksExact<'_, T> {}
@@ -5157,11 +5140,7 @@ impl<'a, T> DoubleEndedIterator for RChunksExactMut<'a, T> {
 }
 
 #[stable(feature = "rchunks", since = "1.31.0")]
-impl<T> ExactSizeIterator for RChunksExactMut<'_, T> {
-    fn is_empty(&self) -> bool {
-        self.v.is_empty()
-    }
-}
+impl<T> ExactSizeIterator for RChunksExactMut<'_, T> {}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<T> TrustedLen for RChunksExactMut<'_, T> {}

@@ -109,10 +109,6 @@ impl<I> ExactSizeIterator for Rev<I>
     fn len(&self) -> usize {
         self.iter.len()
     }
-
-    fn is_empty(&self) -> bool {
-        self.iter.is_empty()
-    }
 }
 
 #[stable(feature = "fused", since = "1.26.0")]
@@ -197,10 +193,6 @@ impl<'a, I, T: 'a> ExactSizeIterator for Copied<I>
 {
     fn len(&self) -> usize {
         self.it.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.it.is_empty()
     }
 }
 
@@ -302,10 +294,6 @@ impl<'a, I, T: 'a> ExactSizeIterator for Cloned<I>
 {
     fn len(&self) -> usize {
         self.it.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.it.is_empty()
     }
 }
 
@@ -620,10 +608,6 @@ impl<B, I: ExactSizeIterator, F> ExactSizeIterator for Map<I, F>
 {
     fn len(&self) -> usize {
         self.iter.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.iter.is_empty()
     }
 }
 
@@ -1023,10 +1007,6 @@ impl<I> DoubleEndedIterator for Enumerate<I> where
 impl<I> ExactSizeIterator for Enumerate<I> where I: ExactSizeIterator {
     fn len(&self) -> usize {
         self.iter.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.iter.is_empty()
     }
 }
 
@@ -1940,10 +1920,6 @@ impl<I> ExactSizeIterator for Fuse<I> where I: ExactSizeIterator {
     fn len(&self) -> usize {
         self.iter.len()
     }
-
-    fn is_empty(&self) -> bool {
-        self.iter.is_empty()
-    }
 }
 
 /// An iterator that calls a function with a reference to each element before
@@ -2052,10 +2028,6 @@ impl<I: ExactSizeIterator, F> ExactSizeIterator for Inspect<I, F>
 {
     fn len(&self) -> usize {
         self.iter.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.iter.is_empty()
     }
 }
 

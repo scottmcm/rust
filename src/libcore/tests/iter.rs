@@ -1725,10 +1725,10 @@ fn test_range_inclusive_nth() {
     assert_eq!(r.nth(2), Some(15));
     assert_eq!(r, 16..=20);
     assert_eq!(r.is_empty(), false);
-    assert_eq!(ExactSizeIterator::is_empty(&r), false);
+    assert_eq!(KnowsEmptyIterator::is_empty(&r), false);
     assert_eq!(r.nth(10), None);
     assert_eq!(r.is_empty(), true);
-    assert_eq!(ExactSizeIterator::is_empty(&r), true);
+    assert_eq!(KnowsEmptyIterator::is_empty(&r), true);
 }
 
 #[test]
@@ -1745,10 +1745,10 @@ fn test_range_inclusive_nth_back() {
     assert_eq!(r.nth_back(2), Some(15));
     assert_eq!(r, 10..=14);
     assert_eq!(r.is_empty(), false);
-    assert_eq!(ExactSizeIterator::is_empty(&r), false);
+    assert_eq!(KnowsEmptyIterator::is_empty(&r), false);
     assert_eq!(r.nth_back(10), None);
     assert_eq!(r.is_empty(), true);
-    assert_eq!(ExactSizeIterator::is_empty(&r), true);
+    assert_eq!(KnowsEmptyIterator::is_empty(&r), true);
 }
 
 #[test]

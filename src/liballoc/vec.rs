@@ -2518,11 +2518,7 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T> ExactSizeIterator for IntoIter<T> {
-    fn is_empty(&self) -> bool {
-        self.ptr == self.end
-    }
-}
+impl<T> ExactSizeIterator for IntoIter<T> {}
 
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T> FusedIterator for IntoIter<T> {}
@@ -2645,11 +2641,7 @@ impl<T> Drop for Drain<'_, T> {
 
 
 #[stable(feature = "drain", since = "1.6.0")]
-impl<T> ExactSizeIterator for Drain<'_, T> {
-    fn is_empty(&self) -> bool {
-        self.iter.is_empty()
-    }
-}
+impl<T> ExactSizeIterator for Drain<'_, T> {}
 
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T> FusedIterator for Drain<'_, T> {}

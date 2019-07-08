@@ -816,11 +816,6 @@ impl ExactSizeIterator for Bytes<'_> {
     fn len(&self) -> usize {
         self.0.len()
     }
-
-    #[inline]
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
 }
 
 #[stable(feature = "fused", since = "1.26.0")]

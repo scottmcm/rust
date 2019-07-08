@@ -753,7 +753,6 @@ impl Iterator for Args {
 #[stable(feature = "env", since = "1.0.0")]
 impl ExactSizeIterator for Args {
     fn len(&self) -> usize { self.inner.len() }
-    fn is_empty(&self) -> bool { self.inner.is_empty() }
 }
 
 #[stable(feature = "env_iterators", since = "1.12.0")]
@@ -788,7 +787,6 @@ impl Iterator for ArgsOs {
 #[stable(feature = "env", since = "1.0.0")]
 impl ExactSizeIterator for ArgsOs {
     fn len(&self) -> usize { self.inner.len() }
-    fn is_empty(&self) -> bool { self.inner.is_empty() }
 }
 
 #[stable(feature = "env_iterators", since = "1.12.0")]

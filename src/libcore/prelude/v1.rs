@@ -37,7 +37,7 @@ pub use crate::default::Default;
 pub use crate::iter::{Iterator, Extend, IntoIterator};
 #[stable(feature = "core_prelude", since = "1.4.0")]
 #[doc(no_inline)]
-pub use crate::iter::{DoubleEndedIterator, ExactSizeIterator};
+pub use crate::iter::{DoubleEndedIterator, ExactSizeIterator, KnowsEmptyIterator};
 #[stable(feature = "core_prelude", since = "1.4.0")]
 #[doc(no_inline)]
 pub use crate::option::Option::{self, Some, None};

@@ -103,11 +103,26 @@ pub trait ExactSizeIterator: Iterator {
         assert_eq!(upper, Some(lower));
         lower
     }
+}
 
+#[stable(feature = "rust1", since = "1.0.0")]
+impl<I: ExactSizeIterator + ?Sized> ExactSizeIterator for &mut I {
+    fn len(&self) -> usize {
+        (**self).len()
+    }
+}
+
+/// An iterator whose size hint knows whether it's empty,
+/// even if it might not know exactly how many items it will to produce.
+///
+/// This means that its `.size_hint()` must either be `(0, Some(0))`, in which case
+/// it's definitely empty, or `(a, _)` where `a > 0`, because it's not empty.
+///
+/// This trait has a default implementation for `ExactSizeIterator` and `TrustedLen`,
+/// so you often don't need to implement it yourself.
+#[unstable(feature = "exact_size_is_empty", issue = "35428")]
+pub trait KnowsEmptyIterator: Iterator {
     /// Returns `true` if the iterator is empty.
-    ///
-    /// This method has a default implementation using `self.len()`, so you
-    /// don't need to implement it yourself.
     ///
     /// # Examples
     ///
@@ -115,6 +130,10 @@ pub trait ExactSizeIterator: Iterator {
     ///
     /// ```
     /// #![feature(exact_size_is_empty)]
+    ///
+    /// # // This shouldn't be needed, as it's in the prelude,
+    /// # // but I'm getting doc test failures without it.
+    /// # use std::iter::KnowsEmptyIterator;
     ///
     /// let mut one_element = std::iter::once(0);
     /// assert!(!one_element.is_empty());
@@ -124,19 +143,21 @@ pub trait ExactSizeIterator: Iterator {
     ///
     /// assert_eq!(one_element.next(), None);
     /// ```
-    #[inline]
     #[unstable(feature = "exact_size_is_empty", issue = "35428")]
+    #[inline]
     fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
+        let (lower, upper) = self.size_hint();
+        debug_assert!(lower > 0 || upper == Some(0));
+        lower == 0
+   }
 }
 
-#[stable(feature = "rust1", since = "1.0.0")]
-impl<I: ExactSizeIterator + ?Sized> ExactSizeIterator for &mut I {
-    fn len(&self) -> usize {
-        (**self).len()
-    }
-    fn is_empty(&self) -> bool {
-        (**self).is_empty()
-    }
-}
+#[unstable(feature = "implementation_details", issue = "0")]
+#[marker] pub trait KnownLength: Iterator {}
+#[unstable(feature = "implementation_details", issue = "0")]
+impl<I: ExactSizeIterator> KnownLength for I {}
+#[unstable(feature = "implementation_details", issue = "0")]
+impl<I: super::TrustedLen> KnownLength for I {}
+
+#[unstable(feature = "exact_size_is_empty", issue = "35428")]
+impl<I: KnownLength> KnowsEmptyIterator for I {}
