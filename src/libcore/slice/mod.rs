@@ -591,6 +591,14 @@ impl<T> [T] {
         }
     }
 
+    /// This is only here so that you get warnings if you call `.into_iter()` on
+    /// a slice, because that doesn't actually exist and you meant `.iter()`.
+    #[unstable(feature = "you_meant_iter_not_into_iter", issue = "0")]
+    #[inline]
+    pub fn into_iter(&self) -> Iter<'_, T> {
+        unimplemented!()
+    }
+
     /// Returns an iterator over the slice.
     ///
     /// # Examples
