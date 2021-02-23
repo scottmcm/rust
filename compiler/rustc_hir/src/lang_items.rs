@@ -309,6 +309,7 @@ language_item_table! {
     TryContinueWith,         sym::continue_with,       continue_with_fn,           Target::Method(MethodKind::Trait { body: false });
     TryBranch,               sym::branch,              branch_fn,                  Target::Method(MethodKind::Trait { body: false });
     FromHolder,              sym::from_holder,         from_holder_fn,             Target::Method(MethodKind::Trait { body: false });
+    FromHolderLegacy,        sym::from_holder_legacy,  from_holder_legacy_fn,      Target::Method(MethodKind::Trait { body: false });
 
     PollReady,               sym::Ready,               poll_ready_variant,         Target::Variant;
     PollPending,             sym::Pending,             poll_pending_variant,       Target::Variant;

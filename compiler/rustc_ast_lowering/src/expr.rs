@@ -12,7 +12,7 @@ use rustc_hir::def::Res;
 use rustc_session::parse::feature_err;
 use rustc_span::source_map::{respan, DesugaringKind, Span, Spanned};
 use rustc_span::symbol::{sym, Ident, Symbol};
-use rustc_span::{hygiene::ForLoopLoc, DUMMY_SP};
+use rustc_span::{edition::Edition, hygiene::ForLoopLoc, DUMMY_SP};
 use rustc_target::asm;
 use std::collections::hash_map::Entry;
 use std::fmt::Write;
@@ -1781,6 +1781,8 @@ impl<'hir> LoweringContext<'_, 'hir> {
     /// }
     /// ```
     fn lower_expr_try(&mut self, span: Span, sub_expr: &Expr) -> hir::ExprKind<'hir> {
+        let include_legacy_interconversions = span.edition() < Edition::Edition2021;
+
         let unstable_span = self.mark_span_with_reason(
             DesugaringKind::QuestionMark,
             span,
@@ -1834,13 +1836,18 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
         // `ControlFlow::Break(err) => #[allow(unreachable_code)]
         //              return Try::from_error(From::from(err)),`
+        let from_holder_lang_item = if include_legacy_interconversions {
+            hir::LangItem::FromHolderLegacy
+        } else {
+            hir::LangItem::FromHolder
+        };
         let break_arm = {
             let holder_ident = Ident::with_dummy_span(sym::holder);
             let (holder_local, holder_local_nid) = self.pat_ident(try_span, holder_ident);
             let holder_expr =
                 self.arena.alloc(self.expr_ident_mut(try_span, holder_ident, holder_local_nid));
             let from_holder_expr = self.wrap_in_try_constructor(
-                hir::LangItem::FromHolder,
+                from_holder_lang_item,
                 unstable_span,
                 holder_expr,
                 unstable_span,

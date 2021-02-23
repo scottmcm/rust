@@ -567,6 +567,7 @@ symbols! {
         from_error,
         from_generator,
         from_holder,
+        from_holder_legacy,
         from_method,
         from_ok,
         from_size_align_unchecked,

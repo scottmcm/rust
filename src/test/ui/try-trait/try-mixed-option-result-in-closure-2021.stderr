@@ -1,0 +1,36 @@
+error[E0277]: the `?` operator can only be used in a closure that returns `Result` or `Option` (or another type that implements `FromResidual`)
+  --> $DIR/try-mixed-option-result-in-closure-2021.rs:10:25
+   |
+LL |           .map(|i| {
+   |  ______________-
+LL | |             let value = slice.get(i)?;
+   | |                         ^^^^^^^^^^^^^ cannot use the `?` operator in a closure that returns `Result<&T, _>`
+LL | |             Ok(value)
+LL | |         })
+   | |_________- this function should return `Result` or `Option` to accept `?`
+   |
+   = help: the trait `FromResidual<Option<!>>` is not implemented for `Result<&T, _>`
+   = note: required by `from_residual`
+
+error[E0277]: the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)
+  --> $DIR/try-mixed-option-result-in-closure-2021.rs:8:18
+   |
+LL |  / pub fn lookup<T>(slice: &[T], indexes: impl Iterator<Item = usize>) -> Option<Vec<&T>> {
+LL |  |     let values = indexes
+   |  |__________________^
+LL | ||         .map(|i| {
+LL | ||             let value = slice.get(i)?;
+LL | ||             Ok(value)
+LL | ||         })
+LL | ||         .collect::<Result<_, _>>()?;
+   | ||___________________________________^ cannot use the `?` operator in a function that returns `Option<Vec<&T>>`
+LL |  |     Some(values)
+LL |  | }
+   |  |_- this function should return `Result` or `Option` to accept `?`
+   |
+   = help: the trait `FromResidual<Result<!, _>>` is not implemented for `Option<Vec<&T>>`
+   = note: required by `from_residual`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

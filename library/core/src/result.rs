@@ -1654,6 +1654,21 @@ impl<T, E, F: From<E>> ops::FromResidual<Result<!, E>> for Result<T, F> {
 mod sadness {
     use super::*;
 
+    /// This includes all of the [`ops::FromResidual`] conversions, but
+    /// also adds the two interconversions that work in 2015 & 2018.
+    #[unstable(feature = "try_trait_v2", issue = "42327")]
+    pub trait FromResidualLegacy<R> {
+        #[cfg_attr(not(bootstrap), lang = "from_holder_legacy")]
+        #[unstable(feature = "try_trait_v2", issue = "42327")]
+        fn from_residual_legacy(r: R) -> Self;
+    }
+
+    impl<T: ops::FromResidual<R>, R> FromResidualLegacy<R> for T {
+        fn from_residual_legacy(r: R) -> Self {
+            <Self as ops::FromResidual<R>>::from_residual(r)
+        }
+    }
+
     /// This is a remnant of the old `NoneError` which is never going to be stabilized.
     /// It's here as a snapshot of an oversight that allowed this to work in the past,
     /// so we're stuck supporting it even though we'd really rather not.
@@ -1662,16 +1677,32 @@ mod sadness {
     pub struct PleaseCallTheOkOrMethodToUseQuestionMarkOnOptionsInAMethodThatReturnsResult;
 
     #[unstable(feature = "try_trait_v2", issue = "42327")]
-    impl<T, E> ops::FromResidual<Option<!>> for Result<T, E>
+    impl<T, E> FromResidualLegacy<Option<!>> for Result<T, E>
     where
         E: From<PleaseCallTheOkOrMethodToUseQuestionMarkOnOptionsInAMethodThatReturnsResult>,
     {
-        fn from_residual(x: Option<!>) -> Self {
+        fn from_residual_legacy(x: Option<!>) -> Self {
             match x {
                 None => Err(From::from(
                     PleaseCallTheOkOrMethodToUseQuestionMarkOnOptionsInAMethodThatReturnsResult,
                 )),
             }
+        }
+    }
+
+    #[unstable(feature = "try_trait_v2", issue = "42327")]
+    impl<T>
+        FromResidualLegacy<
+            Result<!, PleaseCallTheOkOrMethodToUseQuestionMarkOnOptionsInAMethodThatReturnsResult>,
+        > for Option<T>
+    {
+        fn from_residual_legacy(
+            _: Result<
+                !,
+                PleaseCallTheOkOrMethodToUseQuestionMarkOnOptionsInAMethodThatReturnsResult,
+            >,
+        ) -> Self {
+            None
         }
     }
 }

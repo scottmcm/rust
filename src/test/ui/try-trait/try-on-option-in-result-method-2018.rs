@@ -1,4 +1,5 @@
 // check-pass
+// edition:2018
 
 #![allow(dead_code, unused)]
 
