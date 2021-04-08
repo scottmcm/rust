@@ -1,29 +1,21 @@
-error[E0277]: `?` couldn't convert the error to `()`
+error[E0277]: the trait bound `Result<u32, ()>: result::sadness::FromResidualLegacy<Option<!>>` is not satisfied
   --> $DIR/try-on-option.rs:7:5
    |
-LL | fn foo() -> Result<u32, ()> {
-   |             --------------- expected `()` because of this
-LL |     let x: Option<u32> = None;
 LL |     x?;
-   |     ^^ the trait `From<result::sadness::PleaseCallTheOkOrMethodToUseQuestionMarkOnOptionsInAMethodThatReturnsResult>` is not implemented for `()`
+   |     ^^ the trait `result::sadness::FromResidualLegacy<Option<!>>` is not implemented for `Result<u32, ()>`
    |
-   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
-   = note: required because of the requirements on the impl of `FromResidual<Option<!>>` for `Result<u32, ()>`
-   = note: required by `from_residual`
+   = help: the following implementations were found:
+             <Result<T, E> as result::sadness::FromResidualLegacy<Option<!>>>
+   = note: required by `result::sadness::FromResidualLegacy::from_residual_legacy`
 
-error[E0277]: the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)
+error[E0277]: the trait bound `u32: FromResidual<Option<!>>` is not satisfied
   --> $DIR/try-on-option.rs:13:5
    |
-LL | / fn bar() -> u32 {
-LL | |     let x: Option<u32> = None;
-LL | |     x?;
-   | |     ^^ cannot use the `?` operator in a function that returns `u32`
-LL | |     22
-LL | | }
-   | |_- this function should return `Result` or `Option` to accept `?`
+LL |     x?;
+   |     ^^ the trait `FromResidual<Option<!>>` is not implemented for `u32`
    |
-   = help: the trait `FromResidual<Option<!>>` is not implemented for `u32`
-   = note: required by `from_residual`
+   = note: required because of the requirements on the impl of `result::sadness::FromResidualLegacy<Option<!>>` for `u32`
+   = note: required by `result::sadness::FromResidualLegacy::from_residual_legacy`
 
 error: aborting due to 2 previous errors
 

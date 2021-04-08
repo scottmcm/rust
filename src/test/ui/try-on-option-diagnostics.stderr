@@ -1,57 +1,44 @@
-error[E0277]: the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)
+error[E0277]: the trait bound `u32: FromResidual<Option<!>>` is not satisfied
   --> $DIR/try-on-option-diagnostics.rs:7:5
    |
-LL | / fn a_function() -> u32 {
-LL | |     let x: Option<u32> = None;
-LL | |     x?;
-   | |     ^^ cannot use the `?` operator in a function that returns `u32`
-LL | |     22
-LL | | }
-   | |_- this function should return `Result` or `Option` to accept `?`
+LL |     x?;
+   |     ^^ the trait `FromResidual<Option<!>>` is not implemented for `u32`
    |
-   = help: the trait `FromResidual<Option<!>>` is not implemented for `u32`
-   = note: required by `from_residual`
+   = note: required because of the requirements on the impl of `result::sadness::FromResidualLegacy<Option<!>>` for `u32`
+   = note: required by `result::sadness::FromResidualLegacy::from_residual_legacy`
 
-error[E0277]: the `?` operator can only be used in a closure that returns `Result` or `Option` (or another type that implements `FromResidual`)
+error[E0277]: the trait bound `{integer}: FromResidual<Option<!>>` is not satisfied
   --> $DIR/try-on-option-diagnostics.rs:14:9
    |
-LL |       let a_closure = || {
-   |  _____________________-
-LL | |         let x: Option<u32> = None;
-LL | |         x?;
-   | |         ^^ cannot use the `?` operator in a closure that returns `{integer}`
-LL | |         22
-LL | |     };
-   | |_____- this function should return `Result` or `Option` to accept `?`
+LL |         x?;
+   |         ^^ the trait `FromResidual<Option<!>>` is not implemented for `{integer}`
    |
-   = help: the trait `FromResidual<Option<!>>` is not implemented for `{integer}`
-   = note: required by `from_residual`
+   = help: the following implementations were found:
+             <ControlFlow<B, C> as FromResidual>
+             <Option<T> as FromResidual>
+             <Poll<Option<Result<T, F>>> as FromResidual<Result<!, E>>>
+             <Poll<Result<T, F>> as FromResidual<Result<!, E>>>
+             <Result<T, F> as FromResidual<Result<!, E>>>
+   = note: required because of the requirements on the impl of `result::sadness::FromResidualLegacy<Option<!>>` for `{integer}`
+   = note: required by `result::sadness::FromResidualLegacy::from_residual_legacy`
 
-error[E0277]: the `?` operator can only be used in a method that returns `Result` or `Option` (or another type that implements `FromResidual`)
+error[E0277]: the trait bound `(): FromResidual<Option<!>>` is not satisfied
   --> $DIR/try-on-option-diagnostics.rs:26:13
    |
-LL | /         fn a_method() {
-LL | |             let x: Option<u32> = None;
-LL | |             x?;
-   | |             ^^ cannot use the `?` operator in a method that returns `()`
-LL | |         }
-   | |_________- this function should return `Result` or `Option` to accept `?`
+LL |             x?;
+   |             ^^ the trait `FromResidual<Option<!>>` is not implemented for `()`
    |
-   = help: the trait `FromResidual<Option<!>>` is not implemented for `()`
-   = note: required by `from_residual`
+   = note: required because of the requirements on the impl of `result::sadness::FromResidualLegacy<Option<!>>` for `()`
+   = note: required by `result::sadness::FromResidualLegacy::from_residual_legacy`
 
-error[E0277]: the `?` operator can only be used in a trait method that returns `Result` or `Option` (or another type that implements `FromResidual`)
+error[E0277]: the trait bound `(): FromResidual<Option<!>>` is not satisfied
   --> $DIR/try-on-option-diagnostics.rs:39:13
    |
-LL | /         fn a_trait_method() {
-LL | |             let x: Option<u32> = None;
-LL | |             x?;
-   | |             ^^ cannot use the `?` operator in a trait method that returns `()`
-LL | |         }
-   | |_________- this function should return `Result` or `Option` to accept `?`
+LL |             x?;
+   |             ^^ the trait `FromResidual<Option<!>>` is not implemented for `()`
    |
-   = help: the trait `FromResidual<Option<!>>` is not implemented for `()`
-   = note: required by `from_residual`
+   = note: required because of the requirements on the impl of `result::sadness::FromResidualLegacy<Option<!>>` for `()`
+   = note: required by `result::sadness::FromResidualLegacy::from_residual_legacy`
 
 error: aborting due to 4 previous errors
 

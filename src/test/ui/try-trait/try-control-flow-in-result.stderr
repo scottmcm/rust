@@ -1,15 +1,13 @@
-error[E0277]: the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)
+error[E0277]: the trait bound `Result<(), ()>: FromResidual<ControlFlow<(), !>>` is not satisfied
   --> $DIR/try-control-flow-in-result.rs:11:5
    |
-LL | / fn demo() -> Result<(), ()> {
-LL | |     returns_control_flow()?;
-   | |     ^^^^^^^^^^^^^^^^^^^^^^^ cannot use the `?` operator in a function that returns `Result<(), ()>`
-LL | |     Ok(())
-LL | | }
-   | |_- this function should return `Result` or `Option` to accept `?`
+LL |     returns_control_flow()?;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^ the trait `FromResidual<ControlFlow<(), !>>` is not implemented for `Result<(), ()>`
    |
-   = help: the trait `FromResidual<ControlFlow<(), !>>` is not implemented for `Result<(), ()>`
-   = note: required by `from_residual`
+   = help: the following implementations were found:
+             <Result<T, F> as FromResidual<Result<!, E>>>
+   = note: required because of the requirements on the impl of `result::sadness::FromResidualLegacy<ControlFlow<(), !>>` for `Result<(), ()>`
+   = note: required by `result::sadness::FromResidualLegacy::from_residual_legacy`
 
 error: aborting due to previous error
 
