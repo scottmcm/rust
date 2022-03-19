@@ -365,7 +365,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
 
                 // If an error is raised here, pop the frame again to get an accurate backtrace.
                 // To this end, we wrap it all in a `try` block.
-                let res: InterpResult<'tcx> = try {
+                let res: InterpResult<'tcx> = (||{
                     trace!(
                         "caller ABI: {:?}, args: {:#?}",
                         caller_abi,
@@ -464,7 +464,8 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
                             caller_fn_abi.ret.layout.ty,
                         )
                     }
-                };
+                    Ok(())
+                })();
                 match res {
                     Err(err) => {
                         self.stack_mut().pop();
