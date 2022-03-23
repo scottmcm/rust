@@ -212,9 +212,28 @@ pub trait Try: FromResidual {
     ///     ControlFlow::Break(ControlFlow::Break(3)),
     /// );
     /// ```
-    #[lang = "branch"]
     #[unstable(feature = "try_trait_v2", issue = "84277")]
     fn branch(self) -> ControlFlow<Self::Residual, Self::Output>;
+}
+
+#[unstable(feature = "try_trait_v2", issue = "84277")]
+pub trait TryForOldEditions {
+    type OldOutput;
+    type OldResidual;
+
+    #[lang = "branch"]
+    fn old_branch(self) -> ControlFlow<Self::OldResidual, Self::OldOutput>;
+}
+
+#[unstable(feature = "try_trait_v2", issue = "84277")]
+#[rustc_const_unstable(feature = "const_convert", issue = "88674")]
+impl<T: ~const Try> const TryForOldEditions for T {
+    type OldOutput = <Self as Try>::Output;
+    type OldResidual = <Self as Try>::Residual;
+
+    fn old_branch(self) -> ControlFlow<Self::OldResidual, Self::OldOutput> {
+        Self::branch(self)
+    }
 }
 
 /// Used to specify which residuals can be converted into which [`crate::ops::Try`] types.

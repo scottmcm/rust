@@ -190,7 +190,7 @@ pub use self::try_trait::{FromResidual, Try};
 #[unstable(feature = "try_trait_v2_residual", issue = "91285")]
 pub use self::try_trait::Residual;
 
-pub(crate) use self::try_trait::{ChangeOutputType, NeverShortCircuit};
+pub(crate) use self::try_trait::{ChangeOutputType, NeverShortCircuit, TryForOldEditions};
 
 #[unstable(feature = "generator_trait", issue = "43122")]
 pub use self::generator::{Generator, GeneratorState};
