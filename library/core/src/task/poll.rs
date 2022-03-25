@@ -256,6 +256,17 @@ impl<T> const From<T> for Poll<T> {
     }
 }
 
+impl<T, E> Poll<Result<T, E>> {
+    #[unstable(feature = "poll_result", issue = "88888888")]
+    fn result(self) -> Result<Poll<T>, E> {
+        match self {
+            Poll::Ready(Ok(x)) =>Ok(Poll::Ready(x)),
+            Poll::Ready(Err(e)) => Err(e),
+            Poll::Pending => Ok(Poll::Pending),
+        }
+    }
+}
+
 #[unstable(feature = "try_trait_v2", issue = "84277")]
 impl<T, E> ops::TryForOldEditions for Poll<Result<T, E>> {
     type OldOutput = Poll<T>;
@@ -263,11 +274,7 @@ impl<T, E> ops::TryForOldEditions for Poll<Result<T, E>> {
 
     #[inline]
     fn old_branch(self) -> ControlFlow<Self::OldResidual, Self::OldOutput> {
-        match self {
-            Poll::Ready(Ok(x)) => ControlFlow::Continue(Poll::Ready(x)),
-            Poll::Ready(Err(e)) => ControlFlow::Break(Err(e)),
-            Poll::Pending => ControlFlow::Continue(Poll::Pending),
-        }
+        ops::Try::branch(self.result())
     }
 }
 
@@ -281,6 +288,18 @@ impl<T, E, F: From<E>> ops::FromResidual<Result<convert::Infallible, E>> for Pol
     }
 }
 
+impl<T, E> Poll<Option<Result<T, E>>> {
+    #[unstable(feature = "poll_result", issue = "88888888")]
+    fn result(self) -> Result<Poll<Option<T>>, E> {
+        match self {
+            Poll::Ready(Some(Ok(x))) => Ok(Poll::Ready(Some(x))),
+            Poll::Ready(Some(Err(e))) => Err(e),
+            Poll::Ready(None) => Ok(Poll::Ready(None)),
+            Poll::Pending => Ok(Poll::Pending),
+        }
+    }
+}
+
 #[unstable(feature = "try_trait_v2", issue = "84277")]
 impl<T, E> ops::TryForOldEditions for Poll<Option<Result<T, E>>> {
     type OldOutput = Poll<Option<T>>;
@@ -288,12 +307,7 @@ impl<T, E> ops::TryForOldEditions for Poll<Option<Result<T, E>>> {
 
     #[inline]
     fn old_branch(self) -> ControlFlow<Self::OldResidual, Self::OldOutput> {
-        match self {
-            Poll::Ready(Some(Ok(x))) => ControlFlow::Continue(Poll::Ready(Some(x))),
-            Poll::Ready(Some(Err(e))) => ControlFlow::Break(Err(e)),
-            Poll::Ready(None) => ControlFlow::Continue(Poll::Ready(None)),
-            Poll::Pending => ControlFlow::Continue(Poll::Pending),
-        }
+        ops::Try::branch(self.result())
     }
 }
 
