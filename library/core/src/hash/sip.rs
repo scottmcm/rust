@@ -2,10 +2,9 @@
 
 #![allow(deprecated)] // the types in this module are deprecated
 
-use crate::cmp;
 use crate::marker::PhantomData;
-use crate::mem;
-use crate::ptr;
+
+use super::BufferedHasher;
 
 /// An implementation of SipHash 1-3.
 ///
@@ -21,7 +20,7 @@ use crate::ptr;
 #[derive(Debug, Clone, Default)]
 #[doc(hidden)]
 pub struct SipHasher13 {
-    hasher: Hasher<Sip13Rounds>,
+    hasher: BufferedHasher<8, ChunkHasher<Sip13Rounds>>,
 }
 
 /// An implementation of SipHash 2-4.
@@ -34,7 +33,7 @@ pub struct SipHasher13 {
 )]
 #[derive(Debug, Clone, Default)]
 struct SipHasher24 {
-    hasher: Hasher<Sip24Rounds>,
+    hasher: BufferedHasher<8, ChunkHasher<Sip24Rounds>>,
 }
 
 /// An implementation of SipHash 2-4.
@@ -58,13 +57,9 @@ struct SipHasher24 {
 pub struct SipHasher(SipHasher24);
 
 #[derive(Debug)]
-struct Hasher<S: Sip> {
-    k0: u64,
-    k1: u64,
-    length: usize, // how many bytes we've processed
+struct ChunkHasher<S: Sip> {
+    chunks: usize, // how many chunks we've processed
     state: State,  // hash State
-    tail: u64,     // unprocessed bytes le
-    ntail: usize,  // how many bytes in tail are valid
     _marker: PhantomData<S>,
 }
 
@@ -79,6 +74,18 @@ struct State {
     v2: u64,
     v1: u64,
     v3: u64,
+}
+
+impl State {
+    #[inline]
+    fn new(k0: u64, k1: u64) -> Self {
+        let mut state = State { v0: 0, v1: 0, v2: 0, v3: 0 };
+        state.v0 = k0 ^ 0x736f6d6570736575;
+        state.v1 = k1 ^ 0x646f72616e646f6d;
+        state.v2 = k0 ^ 0x6c7967656e657261;
+        state.v3 = k1 ^ 0x7465646279746573;
+        state
+    }
 }
 
 macro_rules! compress {
@@ -99,54 +106,6 @@ macro_rules! compress {
         $v1 ^= $v2;
         $v2 = $v2.rotate_left(32);
     }};
-}
-
-/// Loads an integer of the desired type from a byte stream, in LE order. Uses
-/// `copy_nonoverlapping` to let the compiler generate the most efficient way
-/// to load it from a possibly unaligned address.
-///
-/// Unsafe because: unchecked indexing at i..i+size_of(int_ty)
-macro_rules! load_int_le {
-    ($buf:expr, $i:expr, $int_ty:ident) => {{
-        debug_assert!($i + mem::size_of::<$int_ty>() <= $buf.len());
-        let mut data = 0 as $int_ty;
-        ptr::copy_nonoverlapping(
-            $buf.as_ptr().add($i),
-            &mut data as *mut _ as *mut u8,
-            mem::size_of::<$int_ty>(),
-        );
-        data.to_le()
-    }};
-}
-
-/// Loads a u64 using up to 7 bytes of a byte slice. It looks clumsy but the
-/// `copy_nonoverlapping` calls that occur (via `load_int_le!`) all have fixed
-/// sizes and avoid calling `memcpy`, which is good for speed.
-///
-/// Unsafe because: unchecked indexing at start..start+len
-#[inline]
-unsafe fn u8to64_le(buf: &[u8], start: usize, len: usize) -> u64 {
-    debug_assert!(len < 8);
-    let mut i = 0; // current byte index (from LSB) in the output u64
-    let mut out = 0;
-    if i + 3 < len {
-        // SAFETY: `i` cannot be greater than `len`, and the caller must guarantee
-        // that the index start..start+len is in bounds.
-        out = unsafe { load_int_le!(buf, start + i, u32) } as u64;
-        i += 4;
-    }
-    if i + 1 < len {
-        // SAFETY: same as above.
-        out |= (unsafe { load_int_le!(buf, start + i, u16) } as u64) << (i * 8);
-        i += 2
-    }
-    if i < len {
-        // SAFETY: same as above.
-        out |= (unsafe { *buf.get_unchecked(start + i) } as u64) << (i * 8);
-        i += 1;
-    }
-    debug_assert_eq!(i, len);
-    out
 }
 
 impl SipHasher {
@@ -171,7 +130,8 @@ impl SipHasher {
     )]
     #[must_use]
     pub fn new_with_keys(key0: u64, key1: u64) -> SipHasher {
-        SipHasher(SipHasher24 { hasher: Hasher::new_with_keys(key0, key1) })
+        let chunk_hasher = ChunkHasher::new_with_keys(key0, key1);
+        SipHasher(SipHasher24 { hasher: BufferedHasher::new(chunk_hasher) })
     }
 }
 
@@ -195,34 +155,20 @@ impl SipHasher13 {
         reason = "use `std::collections::hash_map::DefaultHasher` instead"
     )]
     pub fn new_with_keys(key0: u64, key1: u64) -> SipHasher13 {
-        SipHasher13 { hasher: Hasher::new_with_keys(key0, key1) }
+        let chunk_hasher = ChunkHasher::new_with_keys(key0, key1);
+        SipHasher13 { hasher: BufferedHasher::new(chunk_hasher) }
     }
 }
 
-impl<S: Sip> Hasher<S> {
+impl<S: Sip> ChunkHasher<S> {
     #[inline]
-    fn new_with_keys(key0: u64, key1: u64) -> Hasher<S> {
-        let mut state = Hasher {
-            k0: key0,
-            k1: key1,
-            length: 0,
-            state: State { v0: 0, v1: 0, v2: 0, v3: 0 },
-            tail: 0,
-            ntail: 0,
+    fn new_with_keys(key0: u64, key1: u64) -> ChunkHasher<S> {
+        let state = ChunkHasher {
+            chunks: 0,
+            state: State::new(key0, key1),
             _marker: PhantomData,
         };
-        state.reset();
         state
-    }
-
-    #[inline]
-    fn reset(&mut self) {
-        self.length = 0;
-        self.state.v0 = self.k0 ^ 0x736f6d6570736575;
-        self.state.v1 = self.k1 ^ 0x646f72616e646f6d;
-        self.state.v2 = self.k0 ^ 0x6c7967656e657261;
-        self.state.v3 = self.k1 ^ 0x7465646279746573;
-        self.ntail = 0;
     }
 }
 
@@ -262,74 +208,32 @@ impl super::Hasher for SipHasher13 {
     }
 }
 
-impl<S: Sip> super::Hasher for Hasher<S> {
-    // Note: no integer hashing methods (`write_u*`, `write_i*`) are defined
-    // for this type. We could add them, copy the `short_write` implementation
-    // in librustc_data_structures/sip128.rs, and add `write_u*`/`write_i*`
-    // methods to `SipHasher`, `SipHasher13`, and `DefaultHasher`. This would
-    // greatly speed up integer hashing by those hashers, at the cost of
-    // slightly slowing down compile speeds on some benchmarks. See #69152 for
-    // details.
+impl<S: Sip> super::ChunkHasher<8> for ChunkHasher<S> {
     #[inline]
-    fn write(&mut self, msg: &[u8]) {
-        let length = msg.len();
-        self.length += length;
+    fn write_chunk(&mut self, chunk: [u8; 8]) {
+        self.chunks += 1;
+        let mi = u64::from_le_bytes(chunk);
 
-        let mut needed = 0;
-
-        if self.ntail != 0 {
-            needed = 8 - self.ntail;
-            // SAFETY: `cmp::min(length, needed)` is guaranteed to not be over `length`
-            self.tail |= unsafe { u8to64_le(msg, 0, cmp::min(length, needed)) } << (8 * self.ntail);
-            if length < needed {
-                self.ntail += length;
-                return;
-            } else {
-                self.state.v3 ^= self.tail;
-                S::c_rounds(&mut self.state);
-                self.state.v0 ^= self.tail;
-                self.ntail = 0;
-            }
-        }
-
-        // Buffered tail is now flushed, process new input.
-        let len = length - needed;
-        let left = len & 0x7; // len % 8
-
-        let mut i = needed;
-        while i < len - left {
-            // SAFETY: because `len - left` is the biggest multiple of 8 under
-            // `len`, and because `i` starts at `needed` where `len` is `length - needed`,
-            // `i + 8` is guaranteed to be less than or equal to `length`.
-            let mi = unsafe { load_int_le!(msg, i, u64) };
-
-            self.state.v3 ^= mi;
-            S::c_rounds(&mut self.state);
-            self.state.v0 ^= mi;
-
-            i += 8;
-        }
-
-        // SAFETY: `i` is now `needed + len.div_euclid(8) * 8`,
-        // so `i + left` = `needed + len` = `length`, which is by
-        // definition equal to `msg.len()`.
-        self.tail = unsafe { u8to64_le(msg, i, left) };
-        self.ntail = left;
+        self.state.v3 ^= mi;
+        S::c_rounds(&mut self.state);
+        self.state.v0 ^= mi;
     }
 
     #[inline]
-    fn write_str(&mut self, s: &str) {
-        // This hasher works byte-wise, and `0xFF` cannot show up in a `str`,
-        // so just hashing the one extra byte is enough to be prefix-free.
-        self.write(s.as_bytes());
-        self.write_u8(0xFF);
-    }
+    fn finish(&self, tail_len: usize, mut tail_chunk: [u8; 8]) -> u64 {
+        assert!(tail_len < 8);
+        debug_assert!(tail_chunk[tail_len..].iter().all(|x| *x == 0));
 
-    #[inline]
-    fn finish(&self) -> u64 {
         let mut state = self.state;
 
-        let b: u64 = ((self.length as u64 & 0xff) << 56) | self.tail;
+        // Because this isn't a full chunk, the last byte is always zero
+        debug_assert_eq!(tail_chunk[7], 0);
+        // And thus sip can put the (low byte of the) length in there.
+        // It's cheaper to bit-or it in than to directly assign,
+        // as that way the compiler knows it doesn't have to mask the rest.
+        let length = self.chunks * 8 + tail_len;
+        tail_chunk[7] |= length as u8;
+        let b = u64::from_le_bytes(tail_chunk);
 
         state.v3 ^= b;
         S::c_rounds(&mut state);
@@ -342,26 +246,22 @@ impl<S: Sip> super::Hasher for Hasher<S> {
     }
 }
 
-impl<S: Sip> Clone for Hasher<S> {
+impl<S: Sip> Clone for ChunkHasher<S> {
     #[inline]
-    fn clone(&self) -> Hasher<S> {
-        Hasher {
-            k0: self.k0,
-            k1: self.k1,
-            length: self.length,
+    fn clone(&self) -> ChunkHasher<S> {
+        ChunkHasher {
+            chunks: self.chunks,
             state: self.state,
-            tail: self.tail,
-            ntail: self.ntail,
             _marker: self._marker,
         }
     }
 }
 
-impl<S: Sip> Default for Hasher<S> {
-    /// Creates a `Hasher<S>` with the two initial keys set to 0.
+impl<S: Sip> Default for ChunkHasher<S> {
+    /// Creates a `ChunkHasher<S>` with the two initial keys set to 0.
     #[inline]
-    fn default() -> Hasher<S> {
-        Hasher::new_with_keys(0, 0)
+    fn default() -> ChunkHasher<S> {
+        ChunkHasher::new_with_keys(0, 0)
     }
 }
 

@@ -97,6 +97,9 @@ pub use self::sip::SipHasher;
 #[doc(hidden)]
 pub use self::sip::SipHasher13;
 
+use adapters::BufferedHasher;
+
+mod adapters;
 mod sip;
 
 /// A hashable type.
@@ -706,6 +709,22 @@ pub trait BuildHasher {
         x.hash(&mut hasher);
         hasher.finish()
     }
+}
+
+/// A simpler hasher that only has to deal with `N`-byte chunks at a time.
+/// This is usually used inside a `BufferedHasher` adapter, in order to
+/// implement the full `Hasher` API.
+trait ChunkHasher<const N: usize> {
+    /// Write a complete chunk of data to the hasher.
+    fn write_chunk(&mut self, chunk: [u8; N]);
+
+    /// Write the final partial chunk to the hasher, and produce the final value.
+    ///
+    /// For correctness:
+    /// - `tail_len` must be strictly less than `N`, because full chunks must
+    ///   be written with `write_chunk` instead.
+    /// - All of `tail_chunk[tail_len..]` must be zero.
+    fn finish(&self, tail_len: usize, tail_chunk: [u8; N]) -> u64;
 }
 
 /// Used to create a default [`BuildHasher`] instance for types that implement
