@@ -350,7 +350,7 @@ impl<'tcx> Inliner<'tcx> {
     ) -> Result<(), &'static str> {
         match callee_attrs.inline {
             InlineAttr::Never => return Err("never inline hint"),
-            InlineAttr::Always | InlineAttr::Hint => {}
+            InlineAttr::Always | InlineAttr::AlwaysMir | InlineAttr::Hint => {}
             InlineAttr::None => {
                 if self.tcx.sess.mir_opt_level() <= 2 {
                     return Err("at mir-opt-level=2, only #[inline] is inlined");
@@ -409,10 +409,19 @@ impl<'tcx> Inliner<'tcx> {
     ) -> Result<(), &'static str> {
         let tcx = self.tcx;
 
-        let mut threshold = if callee_attrs.requests_inline() {
-            self.tcx.sess.opts.unstable_opts.inline_mir_hint_threshold.unwrap_or(100)
-        } else {
-            self.tcx.sess.opts.unstable_opts.inline_mir_threshold.unwrap_or(50)
+        // Use a higher threshold when the callee requests to be inlined, except
+        // when the caller is *always* going to be inlined but the callee is
+        // only hinted for inlining.
+        let mut threshold = match (self.codegen_fn_attrs.inline, callee_attrs.inline) {
+            (_, InlineAttr::Always | InlineAttr::AlwaysMir)
+            | (InlineAttr::Hint | InlineAttr::None | InlineAttr::Never, InlineAttr::Hint) => {
+                self.tcx.sess.opts.unstable_opts.inline_mir_hint_threshold.unwrap_or(100)
+            }
+            (_, InlineAttr::None)
+            | (InlineAttr::Always | InlineAttr::AlwaysMir, InlineAttr::Hint) => {
+                self.tcx.sess.opts.unstable_opts.inline_mir_threshold.unwrap_or(50)
+            }
+            (_, InlineAttr::Never) => unreachable!(),
         };
 
         // Give a bonus functions with a small number of blocks,
@@ -485,8 +494,11 @@ impl<'tcx> Inliner<'tcx> {
         checker.validation?;
 
         let cost = checker.cost;
-        if let InlineAttr::Always = callee_attrs.inline {
-            debug!("INLINING {:?} because inline(always) [cost={}]", callsite, cost);
+        if let InlineAttr::Always | InlineAttr::AlwaysMir = callee_attrs.inline {
+            debug!(
+                "INLINING {:?} because inline({:?}) [cost={}]",
+                callsite, callee_attrs.inline, cost
+            );
             Ok(())
         } else if cost <= threshold {
             debug!("INLINING {:?} [cost={} <= threshold={}]", callsite, cost, threshold);

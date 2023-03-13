@@ -83,6 +83,8 @@ fn handle_errors(sess: &ParseSess, span: Span, error: AttrError) {
 pub enum InlineAttr {
     None,
     Hint,
+    /// `Always` for MIR, but `Hint` for backends.
+    AlwaysMir,
     Always,
     Never,
 }

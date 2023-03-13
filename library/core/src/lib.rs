@@ -213,6 +213,7 @@
 #![feature(extern_types)]
 #![feature(fundamental)]
 #![feature(if_let_guard)]
+#![cfg_attr(not(bootstrap), feature(inline_always_mir))]
 #![feature(inline_const)]
 #![feature(intra_doc_pointers)]
 #![feature(intrinsics)]

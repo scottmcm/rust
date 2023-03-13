@@ -124,10 +124,11 @@ impl CodegenFnAttrs {
         }
     }
 
-    /// Returns `true` if `#[inline]` or `#[inline(always)]` is present.
+    /// Returns `true` if `#[inline]` or `#[inline(always_mir)`
+    /// or `#[inline(always)]` is present.
     pub fn requests_inline(&self) -> bool {
         match self.inline {
-            InlineAttr::Hint | InlineAttr::Always => true,
+            InlineAttr::Hint | InlineAttr::AlwaysMir | InlineAttr::Always => true,
             InlineAttr::None | InlineAttr::Never => false,
         }
     }

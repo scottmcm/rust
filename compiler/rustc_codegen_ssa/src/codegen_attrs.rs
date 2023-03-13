@@ -431,6 +431,18 @@ fn codegen_fn_attrs(tcx: TyCtxt<'_>, did: DefId) -> CodegenFnAttrs {
                     InlineAttr::None
                 } else if list_contains_name(&items, sym::always) {
                     InlineAttr::Always
+                } else if list_contains_name(&items, sym::always_mir) {
+                    if !tcx.features().inline_always_mir {
+                        feature_err(
+                            &tcx.sess.parse_sess,
+                            sym::inline_always_mir,
+                            attr.span,
+                            "`#[inline(always_mir)]` is experimental",
+                        )
+                        .emit();
+                    }
+
+                    InlineAttr::AlwaysMir
                 } else if list_contains_name(&items, sym::never) {
                     InlineAttr::Never
                 } else {

@@ -1074,7 +1074,7 @@ pub trait PartialOrd<Rhs: ?Sized = Self>: PartialEq<Rhs> {
     /// let result = 2.0 < 1.0;
     /// assert_eq!(result, false);
     /// ```
-    #[inline]
+    #[cfg_attr(not(bootstrap), inline(always_mir))]
     #[must_use]
     #[stable(feature = "rust1", since = "1.0.0")]
     fn lt(&self, other: &Rhs) -> bool {
@@ -1093,7 +1093,7 @@ pub trait PartialOrd<Rhs: ?Sized = Self>: PartialEq<Rhs> {
     /// let result = 2.0 <= 2.0;
     /// assert_eq!(result, true);
     /// ```
-    #[inline]
+    #[cfg_attr(not(bootstrap), inline(always_mir))]
     #[must_use]
     #[stable(feature = "rust1", since = "1.0.0")]
     fn le(&self, other: &Rhs) -> bool {
@@ -1111,7 +1111,7 @@ pub trait PartialOrd<Rhs: ?Sized = Self>: PartialEq<Rhs> {
     /// let result = 2.0 > 2.0;
     /// assert_eq!(result, false);
     /// ```
-    #[inline]
+    #[cfg_attr(not(bootstrap), inline(always_mir))]
     #[must_use]
     #[stable(feature = "rust1", since = "1.0.0")]
     fn gt(&self, other: &Rhs) -> bool {
@@ -1130,7 +1130,7 @@ pub trait PartialOrd<Rhs: ?Sized = Self>: PartialEq<Rhs> {
     /// let result = 2.0 >= 2.0;
     /// assert_eq!(result, true);
     /// ```
-    #[inline]
+    #[cfg_attr(not(bootstrap), inline(always_mir))]
     #[must_use]
     #[stable(feature = "rust1", since = "1.0.0")]
     fn ge(&self, other: &Rhs) -> bool {

@@ -41,7 +41,9 @@ fn inline_attr<'ll>(cx: &CodegenCx<'ll, '_>, inline: InlineAttr) -> Option<&'ll 
         return Some(AttributeKind::NoInline.create_attr(cx.llcx));
     }
     match inline {
-        InlineAttr::Hint => Some(AttributeKind::InlineHint.create_attr(cx.llcx)),
+        InlineAttr::Hint | InlineAttr::AlwaysMir => {
+            Some(AttributeKind::InlineHint.create_attr(cx.llcx))
+        }
         InlineAttr::Always => Some(AttributeKind::AlwaysInline.create_attr(cx.llcx)),
         InlineAttr::Never => {
             if cx.sess().target.arch != "amdgpu" {
