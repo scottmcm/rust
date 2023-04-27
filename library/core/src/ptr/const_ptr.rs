@@ -858,10 +858,13 @@ impl<T: ?Sized> *const T {
         }
     }
 
-    /// Calculates the offset from a pointer (convenience for `.offset(count as isize)`).
+    /// Calculates the unsigned offset from a pointer.
     ///
     /// `count` is in units of T; e.g., a `count` of 3 represents a pointer
     /// offset of `3 * size_of::<T>()` bytes.
+    ///
+    /// When the `count` is low enough to be sound, this can be thought of as a
+    /// convenience method for `.offset(count as isize)`.
     ///
     /// # Safety
     ///
@@ -871,7 +874,8 @@ impl<T: ?Sized> *const T {
     /// * Both the starting and resulting pointer must be either in bounds or one
     ///   byte past the end of the same [allocated object].
     ///
-    /// * The computed offset, **in bytes**, cannot overflow an `isize`.
+    /// * The computed offset, **in bytes**, cannot overflow an `isize`. (This
+    ///   means that `offset`s above `isize::MAX` are UB unless `T` is a ZST.)
     ///
     /// * The offset being in bounds cannot rely on "wrapping around" the address
     ///   space. That is, the infinite-precision sum must fit in a `usize`.

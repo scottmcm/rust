@@ -2,7 +2,7 @@ use rustc_hir::def::DefKind;
 use rustc_hir::{LangItem, CRATE_HIR_ID};
 use rustc_middle::mir;
 use rustc_middle::mir::interpret::PointerArithmetic;
-use rustc_middle::ty::layout::{FnAbiOf, TyAndLayout};
+use rustc_middle::ty::layout::{FnAbiOf, LayoutOf, TyAndLayout};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_session::lint::builtin::INVALID_ALIGNMENT;
 use std::borrow::Borrow;
@@ -568,6 +568,15 @@ impl<'mir, 'tcx> interpret::Machine<'mir, 'tcx> for CompileTimeInterpreter<'mir,
             let ptr = left.to_scalar().to_pointer(ecx)?;
             let offset_count = right.to_scalar().to_target_isize(ecx)?;
             let pointee_ty = left.layout.ty.builtin_deref(true).unwrap().ty;
+            if offset_count < 0
+                && !right.layout.ty.is_signed()
+                && !ecx.layout_of(pointee_ty)?.is_zst()
+            {
+                throw_ub_format!(
+                    "Unsigned `offset` by {:#X} is above `isize::MAX` and thus UB for non-ZST pointee",
+                    right.to_scalar().to_target_usize(ecx)?,
+                );
+            }
 
             let offset_ptr = ecx.ptr_offset_inbounds(ptr, pointee_ty, offset_count)?;
             return Ok((Scalar::from_maybe_pointer(offset_ptr, ecx), false, left.layout.ty));

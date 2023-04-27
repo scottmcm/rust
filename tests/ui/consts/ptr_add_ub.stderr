@@ -1,0 +1,42 @@
+error[E0080]: evaluation of constant value failed
+  --> $SRC_DIR/core/src/ptr/const_ptr.rs:LL:COL
+   |
+   = note: out-of-bounds pointer arithmetic: allocN has size 123, so pointer to 0x7F..FF bytes starting at offset 0 is out-of-bounds
+   |
+note: inside `ptr::const_ptr::<impl *const u8>::add`
+  --> $SRC_DIR/core/src/ptr/const_ptr.rs:LL:COL
+note: inside `ADD_ISIZE_MAX`
+  --> $DIR/ptr_add_ub.rs:10:47
+   |
+LL | pub const ADD_ISIZE_MAX: *const u8 = unsafe { [0_u8; 123].as_ptr().add(isize::MAX as usize) };
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation of constant value failed
+  --> $SRC_DIR/core/src/ptr/const_ptr.rs:LL:COL
+   |
+   = note: Unsigned `offset` by 0x80..00 is above `isize::MAX` and thus UB for non-ZST pointee
+   |
+note: inside `ptr::const_ptr::<impl *const u8>::add`
+  --> $SRC_DIR/core/src/ptr/const_ptr.rs:LL:COL
+note: inside `ADD_ISIZE_MAX_PLUS_ONE`
+  --> $DIR/ptr_add_ub.rs:13:56
+   |
+LL | pub const ADD_ISIZE_MAX_PLUS_ONE: *const u8 = unsafe { [0_u8; 123].as_ptr().add(isize::MAX as usize + 1) };
+   |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation of constant value failed
+  --> $SRC_DIR/core/src/ptr/const_ptr.rs:LL:COL
+   |
+   = note: Unsigned `offset` by 0xFF..FF is above `isize::MAX` and thus UB for non-ZST pointee
+   |
+note: inside `ptr::const_ptr::<impl *const char>::add`
+  --> $SRC_DIR/core/src/ptr/const_ptr.rs:LL:COL
+note: inside `ADD_DOES_NOT_WRAP`
+  --> $DIR/ptr_add_ub.rs:19:6
+   |
+LL |     *p.add(1).add(usize::MAX)
+   |      ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 3 previous errors
+
+For more information about this error, try `rustc --explain E0080`.
