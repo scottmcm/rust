@@ -1,5 +1,6 @@
 //! Integer and floating-point number formatting
 
+use crate::ascii;
 use crate::fmt;
 use crate::mem::MaybeUninit;
 use crate::num::fmt as numfmt;
@@ -200,17 +201,22 @@ debug! {
 }
 
 // 2 digit decimal look up table
-static DEC_DIGITS_LUT: &[u8; 200] = b"0001020304050607080910111213141516171819\
-      2021222324252627282930313233343536373839\
-      4041424344454647484950515253545556575859\
-      6061626364656667686970717273747576777879\
-      8081828384858687888990919293949596979899";
+// FIXME: use `.as_ascii().unwrap()` once `slice::is_ascii` is `const fn`
+// SAFETY: They're all just digits, and CTFE will double-check validity too.
+static DEC_DIGITS_LUT: [ascii::Char; 200] = unsafe {
+    *b"0001020304050607080910111213141516171819\
+       2021222324252627282930313233343536373839\
+       4041424344454647484950515253545556575859\
+       6061626364656667686970717273747576777879\
+       8081828384858687888990919293949596979899"
+        .as_ascii_unchecked()
+};
 
 macro_rules! impl_Display {
     ($($t:ident),* as $u:ident via $conv_fn:ident named $name:ident) => {
         fn $name(mut n: $u, is_nonnegative: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             // 2^128 is about 3*10^38, so 39 gives an extra byte of space
-            let mut buf = [MaybeUninit::<u8>::uninit(); 39];
+            let mut buf = [MaybeUninit::<ascii::Char>::uninit(); 39];
             let mut curr = buf.len();
             let buf_ptr = MaybeUninit::slice_as_mut_ptr(&mut buf);
             let lut_ptr = DEC_DIGITS_LUT.as_ptr();
@@ -254,9 +260,9 @@ macro_rules! impl_Display {
                 }
 
                 // decode last 1 or 2 chars
-                if n < 10 {
+                if let Some(d) = ascii::Char::digit(n as u8) {
                     curr -= 1;
-                    *buf_ptr.add(curr) = (n as u8) + b'0';
+                    *buf_ptr.add(curr) = d;
                 } else {
                     let d1 = n << 1;
                     curr -= 2;
@@ -264,13 +270,11 @@ macro_rules! impl_Display {
                 }
             }
 
-            // SAFETY: `curr` > 0 (since we made `buf` large enough), and all the chars are valid
-            // UTF-8 since `DEC_DIGITS_LUT` is
-            let buf_slice = unsafe {
-                str::from_utf8_unchecked(
-                    slice::from_raw_parts(buf_ptr.add(curr), buf.len() - curr))
+            // SAFETY: `curr` > 0 (since we made `buf` large enough)
+            let buf_slice: &[ascii::Char] = unsafe {
+                slice::from_raw_parts(buf_ptr.add(curr), buf.len() - curr)
             };
-            f.pad_integral(is_nonnegative, "", buf_slice)
+            f.pad_integral(is_nonnegative, "", buf_slice.as_str())
         }
 
         $(#[stable(feature = "rust1", since = "1.0.0")]
@@ -299,7 +303,7 @@ macro_rules! impl_Exp {
             f: &mut fmt::Formatter<'_>
         ) -> fmt::Result {
             let (mut n, mut exponent, trailing_zeros, added_precision) = {
-                let mut exponent = 0;
+                let mut exponent: usize = 0;
                 // count and remove trailing decimal zeroes
                 while n % 10 == 0 && n >= 10 {
                     n /= 10;
@@ -338,7 +342,7 @@ macro_rules! impl_Exp {
             // 39 digits (worst case u128) + . = 40
             // Since `curr` always decreases by the number of digits copied, this means
             // that `curr >= 0`.
-            let mut buf = [MaybeUninit::<u8>::uninit(); 40];
+            let mut buf = [MaybeUninit::<ascii::Char>::uninit(); 40];
             let mut curr = buf.len(); //index for buf
             let buf_ptr = MaybeUninit::slice_as_mut_ptr(&mut buf);
             let lut_ptr = DEC_DIGITS_LUT.as_ptr();
@@ -362,7 +366,7 @@ macro_rules! impl_Exp {
                 curr -= 1;
                 // SAFETY: Safe since `40 > curr >= 0` (see comment)
                 unsafe {
-                    *buf_ptr.add(curr) = (n as u8 % 10_u8) + b'0';
+                    *buf_ptr.add(curr) = ascii::Char::digit(n as u8 % 10_u8).unwrap()
                 }
                 n /= 10;
                 exponent += 1;
@@ -372,29 +376,31 @@ macro_rules! impl_Exp {
                 curr -= 1;
                 // SAFETY: Safe since `40 > curr >= 0`
                 unsafe {
-                    *buf_ptr.add(curr) = b'.';
+                    *buf_ptr.add(curr) = ascii::Char::FullStop;
                 }
             }
 
-            // SAFETY: Safe since `40 > curr >= 0`
+            // SAFETY: Safe since `40 > curr >= 0`.
+            // n is <= 9, because after the loop it's <= 99, then it was
+            // /= 10 again if it wasn't already below 10.
             let buf_slice = unsafe {
                 // decode last character
                 curr -= 1;
-                *buf_ptr.add(curr) = (n as u8) + b'0';
+                *buf_ptr.add(curr) = ascii::Char::digit_unchecked(n as u8);
 
                 let len = buf.len() - curr as usize;
                 slice::from_raw_parts(buf_ptr.add(curr), len)
             };
 
             // stores 'e' (or 'E') and the up to 2-digit exponent
-            let mut exp_buf = [MaybeUninit::<u8>::uninit(); 3];
+            let mut exp_buf = [MaybeUninit::<ascii::Char>::uninit(); 3];
             let exp_ptr = MaybeUninit::slice_as_mut_ptr(&mut exp_buf);
             // SAFETY: In either case, `exp_buf` is written within bounds and `exp_ptr[..len]`
             // is contained within `exp_buf` since `len <= 3`.
             let exp_slice = unsafe {
-                *exp_ptr.add(0) = if upper { b'E' } else { b'e' };
-                let len = if exponent < 10 {
-                    *exp_ptr.add(1) = (exponent as u8) + b'0';
+                *exp_ptr.add(0) = if upper { ascii::Char::CapitalE } else { ascii::Char::SmallE };
+                let len = if let Some(digit) = ascii::Char::digit(exponent as u8) {
+                    *exp_ptr.add(1) = digit;
                     2
                 } else {
                     let off = exponent << 1;
@@ -405,9 +411,9 @@ macro_rules! impl_Exp {
             };
 
             let parts = &[
-                numfmt::Part::Copy(buf_slice),
+                numfmt::Part::Copy(buf_slice.as_bytes()),
                 numfmt::Part::Zero(added_precision),
-                numfmt::Part::Copy(exp_slice)
+                numfmt::Part::Copy(exp_slice.as_bytes())
             ];
             let sign = if !is_nonnegative {
                 "-"
@@ -479,7 +485,11 @@ mod imp {
 impl_Exp!(i128, u128 as u128 via to_u128 named exp_u128);
 
 /// Helper function for writing a u64 into `buf` going from last to first, with `curr`.
-fn parse_u64_into<const N: usize>(mut n: u64, buf: &mut [MaybeUninit<u8>; N], curr: &mut usize) {
+fn parse_u64_into<const N: usize>(
+    mut n: u64,
+    buf: &mut [MaybeUninit<ascii::Char>; N],
+    curr: &mut usize,
+) {
     let buf_ptr = MaybeUninit::slice_as_mut_ptr(buf);
     let lut_ptr = DEC_DIGITS_LUT.as_ptr();
     assert!(*curr > 19);
@@ -553,10 +563,13 @@ fn parse_u64_into<const N: usize>(mut n: u64, buf: &mut [MaybeUninit<u8>; N], cu
             ptr::copy_nonoverlapping(lut_ptr.add(d1 as usize), buf_ptr.add(*curr), 2);
         }
 
+        // `n` < 1e2 < (1 << 8)
+        let n = n as u8;
+
         // decode last 1 or 2 chars
-        if n < 10 {
+        if let Some(d) = ascii::Char::digit(n) {
             *curr -= 1;
-            *buf_ptr.add(*curr) = (n as u8) + b'0';
+            *buf_ptr.add(*curr) = d;
         } else {
             let d1 = n << 1;
             *curr -= 2;
@@ -592,7 +605,7 @@ impl fmt::Display for i128 {
 /// 10^20 > 2^64 > 10^19.
 fn fmt_u128(n: u128, is_nonnegative: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     // 2^128 is about 3*10^38, so 39 gives an extra byte of space
-    let mut buf = [MaybeUninit::<u8>::uninit(); 39];
+    let mut buf = [MaybeUninit::<ascii::Char>::uninit(); 39];
     let mut curr = buf.len();
 
     let (n, rem) = udiv_1e19(n);
@@ -621,24 +634,20 @@ fn fmt_u128(n: u128, is_nonnegative: bool, f: &mut fmt::Formatter<'_>) -> fmt::R
             // buf `buf` is not used in this scope so we are good.
             let buf_ptr = MaybeUninit::slice_as_mut_ptr(&mut buf);
             // SAFETY: At this point we wrote at most 38 bytes, pad up to that point,
-            // There can only be at most 1 digit remaining.
+            // There can only be at most 1 digit remaining. (2¹²⁸ ÷ 10³⁸ ≈ 3.4)
             unsafe {
                 ptr::write_bytes(buf_ptr.add(target), b'0', curr - target);
                 curr = target - 1;
-                *buf_ptr.add(curr) = (n as u8) + b'0';
+                *buf_ptr.add(curr) = ascii::Char::digit_unchecked(n as u8);
             }
         }
     }
 
-    // SAFETY: `curr` > 0 (since we made `buf` large enough), and all the chars are valid
-    // UTF-8 since `DEC_DIGITS_LUT` is
-    let buf_slice = unsafe {
-        str::from_utf8_unchecked(slice::from_raw_parts(
-            MaybeUninit::slice_as_mut_ptr(&mut buf).add(curr),
-            buf.len() - curr,
-        ))
+    // SAFETY: `curr` > 0 (since we made `buf` large enough)
+    let buf_slice: &[ascii::Char] = unsafe {
+        slice::from_raw_parts(MaybeUninit::slice_as_mut_ptr(&mut buf).add(curr), buf.len() - curr)
     };
-    f.pad_integral(is_nonnegative, "", buf_slice)
+    f.pad_integral(is_nonnegative, "", buf_slice.as_str())
 }
 
 /// Partition of `n` into n > 1e19 and rem <= 1e19
