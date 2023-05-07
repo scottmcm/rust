@@ -1,5 +1,5 @@
 // ignore-wasm32 compiled with panic=abort by default
-// compile-flags: -C overflow-checks=on
+// compile-flags: -C overflow-checks=on -C debuginfo=2
 
 struct Point {
     x: u32,

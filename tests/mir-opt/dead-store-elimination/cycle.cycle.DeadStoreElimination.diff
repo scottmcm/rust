@@ -16,10 +16,8 @@
 -     let _11: ();                         // in scope 0 at $DIR/cycle.rs:+3:5: +8:6
 -     let mut _12: !;                      // in scope 0 at $DIR/cycle.rs:+3:5: +8:6
 +     let mut _4: bool;                    // in scope 0 at $DIR/cycle.rs:+3:11: +3:17
-+     let _5: i32;                         // in scope 0 at $DIR/cycle.rs:+4:13: +4:17
       scope 1 {
 -         debug temp => _6;                // in scope 1 at $DIR/cycle.rs:+4:13: +4:17
-+         debug temp => _5;                // in scope 1 at $DIR/cycle.rs:+4:13: +4:17
       }
   
       bb0: {
@@ -58,8 +56,7 @@
 -         StorageDead(_9);                 // scope 1 at $DIR/cycle.rs:+7:16: +7:17
 -         _4 = const ();                   // scope 0 at $DIR/cycle.rs:+3:18: +8:6
 -         StorageDead(_6);                 // scope 0 at $DIR/cycle.rs:+8:5: +8:6
-+         StorageLive(_5);                 // scope 0 at $DIR/cycle.rs:+4:13: +4:17
-          StorageDead(_5);                 // scope 0 at $DIR/cycle.rs:+8:5: +8:6
+-         StorageDead(_5);                 // scope 0 at $DIR/cycle.rs:+8:5: +8:6
 +         StorageDead(_4);                 // scope 0 at $DIR/cycle.rs:+8:5: +8:6
           goto -> bb1;                     // scope 0 at $DIR/cycle.rs:+3:5: +8:6
       }

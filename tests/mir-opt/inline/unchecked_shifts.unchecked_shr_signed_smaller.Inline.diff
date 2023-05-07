@@ -38,8 +38,7 @@
 +                     }
 +                     scope 9 (inlined #[track_caller] Option::<i16>::unwrap_unchecked) { // at $SRC_DIR/core/src/num/mod.rs:LL:COL
 +                         debug self => _8; // in scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
-+                         let mut _15: &std::option::Option<i16>; // in scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
-+                         let mut _16: isize; // in scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
++                         let mut _15: isize; // in scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
 +                         scope 10 {
 +                             debug val => _5; // in scope 10 at $SRC_DIR/core/src/option.rs:LL:COL
 +                         }
@@ -52,7 +51,6 @@
 +                             }
 +                         }
 +                         scope 12 (inlined Option::<i16>::is_some) { // at $SRC_DIR/core/src/option.rs:LL:COL
-+                             debug self => _15; // in scope 12 at $SRC_DIR/core/src/option.rs:LL:COL
 +                         }
 +                     }
 +                 }
@@ -132,14 +130,12 @@
 +     bb8: {
 +         StorageDead(_14);                // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
 +         StorageDead(_9);                 // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
-+         StorageLive(_15);                // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
-+         _16 = discriminant(_8);          // scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
-+         switchInt(move _16) -> [1: bb9, otherwise: bb6]; // scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
++         _15 = discriminant(_8);          // scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
++         switchInt(move _15) -> [1: bb9, otherwise: bb6]; // scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
 +     }
 + 
 +     bb9: {
 +         _5 = move ((_8 as Some).0: i16); // scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
-+         StorageDead(_15);                // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
 +         StorageDead(_8);                 // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
 +         StorageDead(_7);                 // scope 2 at $SRC_DIR/core/src/num/mod.rs:LL:COL
 +         StorageDead(_6);                 // scope 2 at $SRC_DIR/core/src/num/mod.rs:LL:COL

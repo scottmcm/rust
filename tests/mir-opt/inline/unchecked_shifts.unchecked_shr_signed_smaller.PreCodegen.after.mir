@@ -36,7 +36,6 @@ fn unchecked_shr_signed_smaller(_1: i16, _2: u32) -> i16 {
                     scope 9 (inlined #[track_caller] Option::<i16>::unwrap_unchecked) { // at $SRC_DIR/core/src/num/mod.rs:LL:COL
                         debug self => _11; // in scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
                         let mut _12: isize; // in scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
-                        let mut _14: &std::option::Option<i16>; // in scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
                         scope 10 {
                             debug val => _13; // in scope 10 at $SRC_DIR/core/src/option.rs:LL:COL
                         }
@@ -49,7 +48,6 @@ fn unchecked_shr_signed_smaller(_1: i16, _2: u32) -> i16 {
                             }
                         }
                         scope 12 (inlined Option::<i16>::is_some) { // at $SRC_DIR/core/src/option.rs:LL:COL
-                            debug self => _14; // in scope 12 at $SRC_DIR/core/src/option.rs:LL:COL
                         }
                     }
                 }
@@ -110,14 +108,12 @@ fn unchecked_shr_signed_smaller(_1: i16, _2: u32) -> i16 {
     bb6: {
         StorageDead(_10);                // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
         StorageDead(_8);                 // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
-        StorageLive(_14);                // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
         _12 = discriminant(_11);         // scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
         switchInt(move _12) -> [1: bb7, otherwise: bb9]; // scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
     }
 
     bb7: {
         _13 = move ((_11 as Some).0: i16); // scope 9 at $SRC_DIR/core/src/option.rs:LL:COL
-        StorageDead(_14);                // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
         StorageDead(_11);                // scope 4 at $SRC_DIR/core/src/num/mod.rs:LL:COL
         StorageDead(_4);                 // scope 2 at $SRC_DIR/core/src/num/mod.rs:LL:COL
         StorageDead(_3);                 // scope 2 at $SRC_DIR/core/src/num/mod.rs:LL:COL

@@ -7,8 +7,7 @@
       let mut _2: std::option::Option<T>;  // in scope 0 at $DIR/unwrap_unchecked.rs:+1:5: +1:8
 +     scope 1 (inlined #[track_caller] Option::<T>::unwrap_unchecked) { // at $DIR/unwrap_unchecked.rs:10:9: 10:27
 +         debug self => _2;                // in scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
-+         let mut _3: &std::option::Option<T>; // in scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
-+         let mut _4: isize;               // in scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
++         let mut _3: isize;               // in scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
 +         scope 2 {
 +             debug val => _0;             // in scope 2 at $SRC_DIR/core/src/option.rs:LL:COL
 +         }
@@ -21,7 +20,6 @@
 +             }
 +         }
 +         scope 4 (inlined Option::<T>::is_some) { // at $SRC_DIR/core/src/option.rs:LL:COL
-+             debug self => _3;            // in scope 4 at $SRC_DIR/core/src/option.rs:LL:COL
 +         }
 +     }
   
@@ -32,9 +30,8 @@
 -                                          // mir::Constant
 -                                          // + span: $DIR/unwrap_unchecked.rs:10:9: 10:25
 -                                          // + literal: Const { ty: unsafe fn(Option<T>) -> T {Option::<T>::unwrap_unchecked}, val: Value(<ZST>) }
-+         StorageLive(_3);                 // scope 0 at $DIR/unwrap_unchecked.rs:+1:9: +1:27
-+         _4 = discriminant(_2);           // scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
-+         switchInt(move _4) -> [1: bb2, otherwise: bb1]; // scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
++         _3 = discriminant(_2);           // scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
++         switchInt(move _3) -> [1: bb2, otherwise: bb1]; // scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
       }
   
       bb1: {
@@ -47,7 +44,6 @@
 -         resume;                          // scope 0 at $DIR/unwrap_unchecked.rs:+0:1: +2:2
 +     bb2: {
 +         _0 = move ((_2 as Some).0: T);   // scope 1 at $SRC_DIR/core/src/option.rs:LL:COL
-+         StorageDead(_3);                 // scope 0 at $DIR/unwrap_unchecked.rs:+1:9: +1:27
 +         StorageDead(_2);                 // scope 0 at $DIR/unwrap_unchecked.rs:+1:26: +1:27
 +         return;                          // scope 0 at $DIR/unwrap_unchecked.rs:+2:2: +2:2
       }

@@ -19,11 +19,7 @@ fn slice_get_unchecked_mut_range(_1: &mut [u32], _2: std::ops::Range<usize>) -> 
                 let mut _8: usize;       // in scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
                 let mut _9: *mut u32;    // in scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
                 let mut _10: usize;      // in scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-                let _16: std::ops::Range<usize>; // in scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-                let mut _17: std::ops::Range<usize>; // in scope 3 at $SRC_DIR/core/src/intrinsics.rs:LL:COL
-                let mut _18: *mut [u32]; // in scope 3 at $SRC_DIR/core/src/intrinsics.rs:LL:COL
                 scope 4 {
-                    debug this => _16;   // in scope 4 at $SRC_DIR/core/src/slice/index.rs:LL:COL
                     scope 5 {
                         let _6: usize;   // in scope 5 at $SRC_DIR/core/src/slice/index.rs:LL:COL
                         scope 6 {
@@ -56,13 +52,8 @@ fn slice_get_unchecked_mut_range(_1: &mut [u32], _2: std::ops::Range<usize>) -> 
                             }
                         }
                         scope 7 (inlined <std::ops::Range<usize> as SliceIndex<[T]>>::get_unchecked_mut::runtime::<u32>) { // at $SRC_DIR/core/src/intrinsics.rs:LL:COL
-                            debug this => _17; // in scope 7 at $SRC_DIR/core/src/intrinsics.rs:LL:COL
-                            debug slice => _18; // in scope 7 at $SRC_DIR/core/src/intrinsics.rs:LL:COL
                             scope 8 (inlined ptr::mut_ptr::<impl *mut [u32]>::len) { // at $SRC_DIR/core/src/slice/index.rs:LL:COL
-                                debug self => _18; // in scope 8 at $SRC_DIR/core/src/ptr/mut_ptr.rs:LL:COL
-                                let mut _19: *const [u32]; // in scope 8 at $SRC_DIR/core/src/ptr/mut_ptr.rs:LL:COL
                                 scope 9 (inlined std::ptr::metadata::<[u32]>) { // at $SRC_DIR/core/src/ptr/mut_ptr.rs:LL:COL
-                                    debug ptr => _19; // in scope 9 at $SRC_DIR/core/src/ptr/metadata.rs:LL:COL
                                     scope 10 {
                                     }
                                 }
@@ -78,10 +69,6 @@ fn slice_get_unchecked_mut_range(_1: &mut [u32], _2: std::ops::Range<usize>) -> 
         StorageLive(_15);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
         StorageLive(_3);                 // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
         _3 = &raw mut (*_1);             // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
-        StorageLive(_16);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
-        StorageLive(_17);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
-        StorageLive(_18);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
-        StorageLive(_19);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
         StorageLive(_6);                 // scope 5 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         StorageLive(_4);                 // scope 5 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         _4 = (_2.1: usize);              // scope 5 at $SRC_DIR/core/src/slice/index.rs:LL:COL
@@ -122,10 +109,6 @@ fn slice_get_unchecked_mut_range(_1: &mut [u32], _2: std::ops::Range<usize>) -> 
         StorageDead(_10);                // scope 6 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         StorageDead(_9);                 // scope 6 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         StorageDead(_6);                 // scope 5 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-        StorageDead(_19);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
-        StorageDead(_18);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
-        StorageDead(_17);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
-        StorageDead(_16);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
         StorageDead(_3);                 // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
         _0 = &mut (*_15);                // scope 2 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
         StorageDead(_15);                // scope 1 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
