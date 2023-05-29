@@ -215,6 +215,45 @@ impl<'tcx> MirPass<'tcx> for LowerIntrinsics {
                             terminator.kind = TerminatorKind::Goto { target };
                         }
                     }
+                    sym::slice_get_unchecked => {
+                        let target = target.unwrap();
+                        let [slice_ty, ret_ty] = substs.as_slice() else {
+                            span_bug!(
+                                terminator.source_info.span,
+                                "Wrong number of type arguments for slice_get_unchecked intrinsic",
+                            );
+                        };
+                        let slice_ty = slice_ty.expect_ty();
+                        let ret_ty = ret_ty.expect_ty();
+                        assert!(slice_ty.is_unsafe_ptr() && ret_ty.is_unsafe_ptr());
+                        let ty::TypeAndMut { ty: elem_ty, mutbl } =
+                            ret_ty.builtin_deref(true).unwrap();
+                        assert_eq!(
+                            slice_ty.builtin_deref(true),
+                            Some(ty::TypeAndMut { ty: tcx.mk_slice(elem_ty), mutbl }),
+                        );
+                        let Ok([slice, index]) = <[_; 2]>::try_from(std::mem::take(args)) else {
+                            span_bug!(
+                                terminator.source_info.span,
+                                "Wrong number of arguments for slice_get_unchecked intrinsic",
+                            );
+                        };
+                        let updated_place = slice.place().unwrap().project_deeper(
+                            &[
+                                ProjectionElem::Deref,
+                                ProjectionElem::Index(index.place().unwrap().as_local().unwrap()),
+                            ],
+                            tcx,
+                        );
+                        block.statements.push(Statement {
+                            source_info: terminator.source_info,
+                            kind: StatementKind::Assign(Box::new((
+                                *destination,
+                                Rvalue::AddressOf(mutbl, updated_place),
+                            ))),
+                        });
+                        terminator.kind = TerminatorKind::Goto { target };
+                    }
                     sym::offset => {
                         let target = target.unwrap();
                         let Ok([ptr, delta]) = <[_; 2]>::try_from(std::mem::take(args)) else {

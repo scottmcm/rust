@@ -55,6 +55,8 @@
 #![allow(missing_docs)]
 
 use crate::marker::DiscriminantKind;
+#[cfg(not(bootstrap))]
+use crate::marker::PointerLike;
 use crate::marker::Tuple;
 use crate::mem;
 
@@ -1407,6 +1409,18 @@ extern "rust-intrinsic" {
     #[rustc_safe_intrinsic]
     #[rustc_nounwind]
     pub fn needs_drop<T: ?Sized>() -> bool;
+
+    /// Projects into a slice without checking bounds
+    ///
+    /// `E` needs to be a `*const` or `*mut`, and thus will lower in MIR to
+    /// `&raw const (*slice)[index]` or `&raw mut (*slice)[index]` accordingly.
+    ///
+    /// This is for use in `impl SliceIndex for usize` only; it's likely to ICE
+    /// if used in other places, but that's not a bug.
+    #[cfg(not(bootstrap))]
+    #[must_use = "returns a new pointer rather than modifying its argument"]
+    #[rustc_nounwind]
+    pub fn slice_get_unchecked<S, E: PointerLike>(slice: S, index: usize) -> E;
 
     /// Calculates the offset from a pointer.
     ///

@@ -143,3 +143,13 @@ pub fn option_payload(o: &Option<usize>, p: &Option<String>) {
 pub unsafe fn ptr_offset(p: *const i32, d: isize) -> *const i32 {
     core::intrinsics::offset(p, d)
 }
+
+// EMIT_MIR lower_intrinsics.slice_const.LowerIntrinsics.diff
+pub unsafe fn slice_const(p: *const [i32], d: usize) -> *const i32 {
+    core::intrinsics::slice_get_unchecked(p, d)
+}
+
+// EMIT_MIR lower_intrinsics.slice_mut.LowerIntrinsics.diff
+pub unsafe fn slice_mut(p: *mut [i32], d: usize) -> *mut i32 {
+    core::intrinsics::slice_get_unchecked(p, d)
+}

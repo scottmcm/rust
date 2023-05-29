@@ -1,0 +1,30 @@
+- // MIR for `slice_const` before LowerIntrinsics
++ // MIR for `slice_const` after LowerIntrinsics
+  
+  fn slice_const(_1: *const [i32], _2: usize) -> *const i32 {
+      debug p => _1;                       // in scope 0 at $DIR/lower_intrinsics.rs:+0:27: +0:28
+      debug d => _2;                       // in scope 0 at $DIR/lower_intrinsics.rs:+0:44: +0:45
+      let mut _0: *const i32;              // return place in scope 0 at $DIR/lower_intrinsics.rs:+0:57: +0:67
+      let mut _3: *const [i32];            // in scope 0 at $DIR/lower_intrinsics.rs:+1:43: +1:44
+      let mut _4: usize;                   // in scope 0 at $DIR/lower_intrinsics.rs:+1:46: +1:47
+  
+      bb0: {
+          StorageLive(_3);                 // scope 0 at $DIR/lower_intrinsics.rs:+1:43: +1:44
+          _3 = _1;                         // scope 0 at $DIR/lower_intrinsics.rs:+1:43: +1:44
+          StorageLive(_4);                 // scope 0 at $DIR/lower_intrinsics.rs:+1:46: +1:47
+          _4 = _2;                         // scope 0 at $DIR/lower_intrinsics.rs:+1:46: +1:47
+-         _0 = slice_get_unchecked::<*const [i32], *const i32>(move _3, move _4) -> [return: bb1, unwind unreachable]; // scope 0 at $DIR/lower_intrinsics.rs:+1:5: +1:48
+-                                          // mir::Constant
+-                                          // + span: $DIR/lower_intrinsics.rs:149:5: 149:42
+-                                          // + literal: Const { ty: unsafe extern "rust-intrinsic" fn(*const [i32], usize) -> *const i32 {slice_get_unchecked::<*const [i32], *const i32>}, val: Value(<ZST>) }
++         _0 = &raw const (*_3)[_4];       // scope 0 at $DIR/lower_intrinsics.rs:+1:5: +1:48
++         goto -> bb1;                     // scope 0 at $DIR/lower_intrinsics.rs:+1:5: +1:48
+      }
+  
+      bb1: {
+          StorageDead(_4);                 // scope 0 at $DIR/lower_intrinsics.rs:+1:47: +1:48
+          StorageDead(_3);                 // scope 0 at $DIR/lower_intrinsics.rs:+1:47: +1:48
+          return;                          // scope 0 at $DIR/lower_intrinsics.rs:+2:2: +2:2
+      }
+  }
+  

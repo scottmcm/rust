@@ -1424,6 +1424,7 @@ symbols! {
         sized,
         skip,
         slice,
+        slice_get_unchecked,
         slice_len_fn,
         slice_patterns,
         slicing_syntax,

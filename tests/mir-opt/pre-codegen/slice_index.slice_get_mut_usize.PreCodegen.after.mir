@@ -14,13 +14,12 @@ fn slice_get_mut_usize(_1: &mut [u32], _2: usize) -> Option<&mut u32> {
             let mut _4: usize;           // in scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
             let mut _5: bool;            // in scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
             let mut _6: *mut [u32];      // in scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-            let mut _8: *mut u32;        // in scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-            let mut _9: &mut u32;        // in scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
+            let mut _7: *mut u32;        // in scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
+            let mut _8: &mut u32;        // in scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
             scope 3 {
                 scope 4 (inlined <usize as SliceIndex<[u32]>>::get_unchecked_mut) { // at $SRC_DIR/core/src/slice/index.rs:LL:COL
                     debug self => _2;    // in scope 4 at $SRC_DIR/core/src/slice/index.rs:LL:COL
                     debug slice => _6;   // in scope 4 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-                    let mut _7: *mut u32; // in scope 4 at $SRC_DIR/core/src/slice/index.rs:LL:COL
                     scope 5 {
                         debug this => _2; // in scope 5 at $SRC_DIR/core/src/slice/index.rs:LL:COL
                         scope 6 {
@@ -32,15 +31,6 @@ fn slice_get_mut_usize(_1: &mut [u32], _2: usize) -> Option<&mut u32> {
                                     }
                                 }
                             }
-                            scope 11 (inlined ptr::mut_ptr::<impl *mut [u32]>::as_mut_ptr) { // at $SRC_DIR/core/src/slice/index.rs:LL:COL
-                                debug self => _6; // in scope 11 at $SRC_DIR/core/src/ptr/mut_ptr.rs:LL:COL
-                            }
-                            scope 12 (inlined ptr::mut_ptr::<impl *mut u32>::add) { // at $SRC_DIR/core/src/slice/index.rs:LL:COL
-                                debug self => _7; // in scope 12 at $SRC_DIR/core/src/ptr/mut_ptr.rs:LL:COL
-                                debug count => _2; // in scope 12 at $SRC_DIR/core/src/ptr/mut_ptr.rs:LL:COL
-                                scope 13 {
-                                }
-                            }
                         }
                     }
                 }
@@ -49,7 +39,7 @@ fn slice_get_mut_usize(_1: &mut [u32], _2: usize) -> Option<&mut u32> {
     }
 
     bb0: {
-        StorageLive(_9);                 // scope 1 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
+        StorageLive(_8);                 // scope 1 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
         StorageLive(_5);                 // scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         StorageLive(_4);                 // scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         StorageLive(_3);                 // scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
@@ -70,23 +60,20 @@ fn slice_get_mut_usize(_1: &mut [u32], _2: usize) -> Option<&mut u32> {
     }
 
     bb2: {
-        StorageLive(_8);                 // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
+        StorageLive(_7);                 // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         StorageLive(_6);                 // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         _6 = &raw mut (*_1);             // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-        StorageLive(_7);                 // scope 6 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-        _7 = _6 as *mut u32 (PtrToPtr);  // scope 11 at $SRC_DIR/core/src/ptr/mut_ptr.rs:LL:COL
-        _8 = Offset(_7, _2);             // scope 13 at $SRC_DIR/core/src/ptr/mut_ptr.rs:LL:COL
-        StorageDead(_7);                 // scope 6 at $SRC_DIR/core/src/slice/index.rs:LL:COL
+        _7 = &raw mut (*_6)[_2];         // scope 6 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         StorageDead(_6);                 // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-        _9 = &mut (*_8);                 // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-        _0 = Option::<&mut u32>::Some(_9); // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-        StorageDead(_8);                 // scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
+        _8 = &mut (*_7);                 // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
+        _0 = Option::<&mut u32>::Some(_8); // scope 3 at $SRC_DIR/core/src/slice/index.rs:LL:COL
+        StorageDead(_7);                 // scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
         goto -> bb3;                     // scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
     }
 
     bb3: {
         StorageDead(_5);                 // scope 2 at $SRC_DIR/core/src/slice/index.rs:LL:COL
-        StorageDead(_9);                 // scope 1 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
+        StorageDead(_8);                 // scope 1 at $SRC_DIR/core/src/slice/mod.rs:LL:COL
         return;                          // scope 0 at $DIR/slice_index.rs:+2:2: +2:2
     }
 }
