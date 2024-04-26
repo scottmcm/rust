@@ -303,7 +303,10 @@ impl<'a, T> IterMut<'a, T> {
     #[must_use]
     #[stable(feature = "slice_iter_mut_as_slice", since = "1.53.0")]
     #[inline]
-    pub fn as_slice(&self) -> &[T] {
+    pub fn as_slice<'b>(&'b self) -> &'b [T]
+    where
+        'a: 'b,
+    {
         self.make_slice()
     }
 
@@ -341,7 +344,10 @@ impl<'a, T> IterMut<'a, T> {
     #[must_use]
     // FIXME: Uncomment the `AsMut<[T]>` impl when this gets stabilized.
     #[unstable(feature = "slice_iter_mut_as_mut_slice", issue = "93079")]
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
+    pub fn as_mut_slice<'b>(&'b mut self) -> &'b mut [T]
+    where
+        'a: 'b,
+    {
         // SAFETY: the iterator was created from a mutable slice with pointer
         // `self.ptr` and length `len!(self)`. This guarantees that all the prerequisites
         // for `from_raw_parts_mut` are fulfilled.
