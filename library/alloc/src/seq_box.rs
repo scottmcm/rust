@@ -1,5 +1,6 @@
-use crate::alloc::{Allocator, Layout};
+use crate::alloc::{Allocator, Global, Layout};
 use core::array;
+use core::fmt;
 use core::intrinsics;
 use core::iter::{FusedIterator, TrustedFused, TrustedLen, TrustedRandomAccessNoCoerce};
 use core::marker::Unsize;
@@ -11,7 +12,7 @@ use core::slice::DrainRaw;
 /// A `SeqBox<[T], A>` is like a `RawVec<T, A>`,
 /// but it also supports `SeqBox<[T; N], A>`
 /// which doesn't need to store a separate capacity value.
-pub struct SeqBox<T: ?Sized, A: Allocator> {
+struct SeqBox<T: ?Sized, A: Allocator> {
     ptr: Unique<T>,
     alloc: A,
 }
@@ -48,16 +49,21 @@ unsafe impl<#[may_dangle] T: ?Sized, A: Allocator> Drop for SeqBox<T, A> {
     }
 }
 
+#[unstable(feature = "alloc_internals", issue = "none")]
 pub trait ArrayOrSlice {
+    #[unstable(feature = "alloc_internals", issue = "none")]
     type Element;
+    #[unstable(feature = "alloc_internals", issue = "none")]
     fn ptr_and_len(ptr: NonNull<Self>) -> (NonNull<Self::Element>, usize);
 }
+#[unstable(feature = "alloc_internals", issue = "none")]
 impl<T> ArrayOrSlice for [T] {
     type Element = T;
     fn ptr_and_len(ptr: NonNull<Self>) -> (NonNull<Self::Element>, usize) {
         (ptr.as_non_null_ptr(), ptr.len())
     }
 }
+#[unstable(feature = "alloc_internals", issue = "none")]
 impl<T, const N: usize> ArrayOrSlice for [T; N] {
     type Element = T;
     fn ptr_and_len(ptr: NonNull<Self>) -> (NonNull<Self::Element>, usize) {
@@ -71,12 +77,29 @@ impl<T, const N: usize> ArrayOrSlice for [T; N] {
 /// - `Vec<T>::into_iter`, as `IntoIter<T, [T]>`
 /// - `Box<[T]>::into_iter`, as `IntoIter<T, [T]>`
 /// - `Box<[T; N]>::into_iter`, as `IntoIter<[T; N]>`
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
+#[rustc_insignificant_dtor]
+// The extra `T` parameter is needed for coercions to work, but we don't want people
+// to see it in error messages or otherwise, so it has a default.
+// The actually-reachable re-exports don't expose it.
+#[allow(private_interfaces)]
 // IMPORTANT: fields are dropped in-order, so DO NOT reorder them!
-pub struct IntoIter<S: ?Sized, A: Allocator, T = <S as ArrayOrSlice>::Element> {
+pub struct IntoIter<
+S: ?Sized,
+#[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global,
+#[unstable(feature = "alloc_internals", issue = "none")] T = <S as ArrayOrSlice>::Element> {
     // When dropping, this field drops the owned elements...
-    drain: DrainRaw<T>,
+    pub(crate) drain: DrainRaw<T>,
     // ...then this one deallocates, even if a drop panicked.
+    #[allow(dead_code)]
     raw: SeqBox<S, A>,
+}
+
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
+impl<S: ?Sized, A: Allocator, T: fmt::Debug> fmt::Debug for IntoIter<S, A, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_tuple("IntoIter").field(&self.as_shortlived_slice()).finish()
+    }
 }
 
 #[unstable(feature = "coerce_unsized", issue = "18598")]
@@ -85,6 +108,23 @@ impl<T, X: ?Sized, Y: Unsize<X> + ?Sized, A: Allocator> CoerceUnsized<IntoIter<X
 {
 }
 
+impl<S: ?Sized, T, A: Allocator> IntoIter<S, A, T> {
+    pub(crate) unsafe fn from_unique_and_allocator(ptr: Unique<S>, alloc: A) -> Self
+        where S: ArrayOrSlice<Element = T>
+    {
+        let (drain_ptr, len) = ArrayOrSlice::ptr_and_len(ptr.as_non_null_ptr());
+        IntoIter {
+            drain: unsafe { DrainRaw::from_parts(drain_ptr, len) },
+            raw: SeqBox { ptr, alloc },
+        }
+    }
+
+    pub(crate) fn as_shortlived_slice(&self) -> &[T] {
+        unsafe { self.drain.as_nonnull_slice().as_ref() }
+    }
+}
+
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
 impl<S: ?Sized, T, A: Allocator> Iterator for IntoIter<S, A, T> {
     type Item = T;
 
@@ -129,7 +169,7 @@ impl<S: ?Sized, T, A: Allocator> Iterator for IntoIter<S, A, T> {
     }
 }
 
-#[stable(feature = "rust1", since = "1.0.0")]
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
 impl<S: ?Sized, T, A: Allocator> DoubleEndedIterator for IntoIter<S, A, T> {
     #[inline]
     fn next_back(&mut self) -> Option<T> {
@@ -142,7 +182,7 @@ impl<S: ?Sized, T, A: Allocator> DoubleEndedIterator for IntoIter<S, A, T> {
     }
 }
 
-#[stable(feature = "rust1", since = "1.0.0")]
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
 impl<S: ?Sized, T, A: Allocator> ExactSizeIterator for IntoIter<S, A, T> {
     fn is_empty(&self) -> bool {
         self.drain.is_empty()
@@ -152,7 +192,7 @@ impl<S: ?Sized, T, A: Allocator> ExactSizeIterator for IntoIter<S, A, T> {
     }
 }
 
-#[stable(feature = "fused", since = "1.26.0")]
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
 impl<S: ?Sized, T, A: Allocator> FusedIterator for IntoIter<S, A, T> {}
 
 #[doc(hidden)]

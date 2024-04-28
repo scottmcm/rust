@@ -32,6 +32,9 @@ use core::slice::DrainRaw;
 /// let iter: std::vec::IntoIter<_> = v.into_iter();
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
+pub type IntoIter<T, A: Allocator = Global> = crate::boxed::IntoIter<[T], A>;
+
+/*
 #[rustc_insignificant_dtor]
 pub struct IntoIter<
     T,
@@ -52,6 +55,8 @@ impl<T: fmt::Debug, A: Allocator> fmt::Debug for IntoIter<T, A> {
         f.debug_tuple("IntoIter").field(&self.as_slice()).finish()
     }
 }
+*/
+
 
 impl<T, A: Allocator> IntoIter<T, A> {
     /// Returns the remaining items of this iterator as a slice.
@@ -177,6 +182,7 @@ unsafe impl<T: Send, A: Allocator + Send> Send for IntoIter<T, A> {}
 #[stable(feature = "rust1", since = "1.0.0")]
 unsafe impl<T: Sync, A: Allocator + Sync> Sync for IntoIter<T, A> {}
 
+/*
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T, A: Allocator> Iterator for IntoIter<T, A> {
     type Item = T;
@@ -257,6 +263,7 @@ unsafe impl<T, A: Allocator> TrustedFused for IntoIter<T, A> {}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<T, A: Allocator> TrustedLen for IntoIter<T, A> {}
+*/
 
 #[stable(feature = "default_iters", since = "1.70.0")]
 impl<T, A> Default for IntoIter<T, A>
@@ -276,6 +283,7 @@ where
     }
 }
 
+/*
 #[doc(hidden)]
 #[unstable(issue = "none", feature = "std_internals")]
 #[rustc_unsafe_specialization_marker]
@@ -296,6 +304,7 @@ where
 {
     const MAY_HAVE_SIDE_EFFECT: bool = false;
 }
+*/
 
 #[cfg(not(no_global_oom_handling))]
 #[stable(feature = "vec_into_iter_clone", since = "1.8.0")]
@@ -310,6 +319,7 @@ impl<T: Clone, A: Allocator + Clone> Clone for IntoIter<T, A> {
     }
 }
 
+/*
 #[stable(feature = "rust1", since = "1.0.0")]
 unsafe impl<#[may_dangle] T, A: Allocator> Drop for IntoIter<T, A> {
     fn drop(&mut self) {
@@ -332,6 +342,7 @@ unsafe impl<#[may_dangle] T, A: Allocator> Drop for IntoIter<T, A> {
         // now `guard` will be dropped and do the rest
     }
 }
+*/
 
 // In addition to the SAFETY invariants of the following three unsafe traits
 // also refer to the vec::in_place_collect module documentation to get an overview

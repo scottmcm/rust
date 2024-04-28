@@ -2505,3 +2505,21 @@ impl<T: core::error::Error> core::error::Error for Box<T> {
         core::error::Error::provide(&**self, request);
     }
 }
+
+/// TODO: Docs
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
+#[allow(type_alias_bounds)]
+pub type IntoIter<T, A: Allocator> = crate::seq_box::IntoIter<T, A>;
+
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
+impl<T, const N: usize, A: Allocator> !Iterator for Box<[T; N], A> {}
+
+#[stable(feature = "boxed_slice_into_iter", since = "CURRENT_RUSTC_VERSION")]
+impl<T, const N: usize, A: Allocator> IntoIterator for Box<[T; N], A> {
+    type IntoIter = IntoIter<[T; N], A>;
+    type Item = T;
+    fn into_iter(self) -> Self::IntoIter {
+        let (unique, alloc) = Box::into_unique(self);
+        unsafe { IntoIter::from_unique_and_allocator(unique, alloc) }
+    }
+}
