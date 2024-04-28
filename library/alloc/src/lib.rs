@@ -226,6 +226,7 @@ mod testing;
 mod macros;
 
 mod raw_vec;
+mod seq_box;
 
 // Heaps provided for low-level allocation strategies
 
