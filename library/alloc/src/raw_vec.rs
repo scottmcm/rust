@@ -33,11 +33,33 @@ enum AllocInit {
     Zeroed,
 }
 
+pub trait CapacityHolder: Copy {
+    fn as_usize<T>(self) -> usize {
+        if T::IS_ZST {
+            usize::MAX
+        } else {
+            Self::as_usize_raw(self)
+        }
+    }
+    fn as_usize_raw(c: Self) -> usize;
+}
+
+#[derive(Copy, Clone)]
+pub struct FixedCapacity<const N: usize>;
+impl<const N: usize> CapacityHolder for FixedCapacity<N> {
+    fn as_usize_raw(_: Self) -> usize { N }
+}
+
 #[repr(transparent)]
+#[derive(Copy, Clone)]
 #[cfg_attr(target_pointer_width = "16", rustc_layout_scalar_valid_range_end(0x7fff))]
 #[cfg_attr(target_pointer_width = "32", rustc_layout_scalar_valid_range_end(0x7fff_ffff))]
 #[cfg_attr(target_pointer_width = "64", rustc_layout_scalar_valid_range_end(0x7fff_ffff_ffff_ffff))]
-struct Cap(usize);
+pub(crate) struct Cap(usize);
+
+impl CapacityHolder for Cap {
+    fn as_usize_raw(c: Self) -> usize { c.0 }
+}
 
 impl Cap {
     const ZERO: Cap = unsafe { Cap(0) };
@@ -66,14 +88,9 @@ impl Cap {
 /// `usize::MAX`. This means that you need to be careful when round-tripping this type with a
 /// `Box<[T]>`, since `capacity()` won't yield the length.
 #[allow(missing_debug_implementations)]
-pub(crate) struct RawVec<T, A: Allocator = Global> {
+pub(crate) struct RawVec<T, A: Allocator = Global, C: CapacityHolder = Cap> {
     ptr: Unique<T>,
-    /// Never used for ZSTs; it's `capacity()`'s responsibility to return usize::MAX in that case.
-    ///
-    /// # Safety
-    ///
-    /// `cap` must be in the `0..=isize::MAX` range.
-    cap: Cap,
+    cap: C,
     alloc: A,
 }
 
@@ -126,6 +143,27 @@ impl<T> RawVec<T, Global> {
     #[inline]
     pub fn with_capacity_zeroed(capacity: usize) -> Self {
         Self::with_capacity_zeroed_in(capacity, Global)
+    }
+}
+
+impl<T, A: Allocator, C: CapacityHolder> RawVec<T, A, C> {
+    fn current_memory(&self) -> Option<(NonNull<u8>, Layout)> {
+        let cap = self.cap.as_usize::<T>();
+        if T::IS_ZST || cap == 0 {
+            None
+        } else {
+            // We could use Layout::array here which ensures the absence of isize and usize overflows
+            // and could hypothetically handle differences between stride and size, but this memory
+            // has already been allocated so we know it can't overflow and currently Rust does not
+            // support such types. So we can do better by skipping some checks and avoid an unwrap.
+            const { assert!(mem::size_of::<T>() % mem::align_of::<T>() == 0) };
+            unsafe {
+                let align = mem::align_of::<T>();
+                let size = mem::size_of::<T>().unchecked_mul(cap);
+                let layout = Layout::from_size_align_unchecked(size, align);
+                Some((self.ptr.cast().into(), layout))
+            }
+        }
     }
 }
 
@@ -294,24 +332,6 @@ impl<T, A: Allocator> RawVec<T, A> {
     /// Returns a shared reference to the allocator backing this `RawVec`.
     pub fn allocator(&self) -> &A {
         &self.alloc
-    }
-
-    fn current_memory(&self) -> Option<(NonNull<u8>, Layout)> {
-        if T::IS_ZST || self.cap.0 == 0 {
-            None
-        } else {
-            // We could use Layout::array here which ensures the absence of isize and usize overflows
-            // and could hypothetically handle differences between stride and size, but this memory
-            // has already been allocated so we know it can't overflow and currently Rust does not
-            // support such types. So we can do better by skipping some checks and avoid an unwrap.
-            const { assert!(mem::size_of::<T>() % mem::align_of::<T>() == 0) };
-            unsafe {
-                let align = mem::align_of::<T>();
-                let size = mem::size_of::<T>().unchecked_mul(self.cap.0);
-                let layout = Layout::from_size_align_unchecked(size, align);
-                Some((self.ptr.cast().into(), layout))
-            }
-        }
     }
 
     /// Ensures that the buffer contains at least enough space to hold `len +
@@ -576,7 +596,7 @@ where
     memory.map_err(|_| AllocError { layout: new_layout, non_exhaustive: () }.into())
 }
 
-unsafe impl<#[may_dangle] T, A: Allocator> Drop for RawVec<T, A> {
+unsafe impl<#[may_dangle] T, A: Allocator, C: CapacityHolder> Drop for RawVec<T, A, C> {
     /// Frees the memory owned by the `RawVec` *without* trying to drop its contents.
     fn drop(&mut self) {
         if let Some((ptr, layout)) = self.current_memory() {

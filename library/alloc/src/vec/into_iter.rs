@@ -46,12 +46,7 @@ pub struct IntoIter<
     T,
     #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global,
 > {
-    pub(super) buf: NonNull<T>,
-    pub(super) phantom: PhantomData<T>,
-    pub(super) cap: usize,
-    // the drop impl reconstructs a RawVec from buf, cap and alloc
-    // to avoid dropping the allocator twice we need to wrap it into ManuallyDrop
-    pub(super) alloc: ManuallyDrop<A>,
+    pub(super) buf: RawVec<T, A>,
     pub(super) ptr: NonNull<T>,
     /// If T is a ZST, this is actually ptr+len. This encoding is picked so that
     /// ptr == end is a quick test for the Iterator being empty, that works
@@ -106,7 +101,7 @@ impl<T, A: Allocator> IntoIter<T, A> {
     #[unstable(feature = "allocator_api", issue = "32838")]
     #[inline]
     pub fn allocator(&self) -> &A {
-        &self.alloc
+        self.buf.allocator()
     }
 
     fn as_raw_mut_slice(&mut self) -> *mut [T] {
@@ -136,9 +131,7 @@ impl<T, A: Allocator> IntoIter<T, A> {
         // struct and then overwriting &mut self.
         // this creates less assembly
         self.cap = 0;
-        self.buf = RawVec::NEW.non_null();
-        self.ptr = self.buf;
-        self.end = self.buf.as_ptr();
+        unsafe { self.buf.set_ptr_and_cap(NonNull::dangling(), 0) };
 
         // Dropping the remaining elements can panic, so this needs to be
         // done only after updating the other fields.
