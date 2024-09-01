@@ -275,6 +275,9 @@ use crate::string::String;
 #[cfg(not(no_global_oom_handling))]
 use crate::vec::Vec;
 
+mod poly;
+use poly::{CanStoreInRc, RcCounts, StrongPoly, WeakPoly};
+
 #[cfg(test)]
 mod tests;
 
@@ -343,39 +346,49 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized> DispatchFromDyn<Rc<U>> for Rc<T> {}
 
 impl<T: ?Sized> Rc<T> {
     #[inline]
-    unsafe fn from_inner(ptr: NonNull<RcBox<T>>) -> Self {
-        unsafe { Self::from_inner_in(ptr, Global) }
+    unsafe fn from_poly(poly: StrongPoly) -> Self {
+        unsafe { Self::from_poly_in(poly, Global) }
     }
 
-    #[inline]
-    unsafe fn from_ptr(ptr: *mut RcBox<T>) -> Self {
-        unsafe { Self::from_inner(NonNull::new_unchecked(ptr)) }
-    }
+    // #[inline]
+    // unsafe fn from_inner(ptr: NonNull<RcBox<T>>) -> Self {
+    //     unsafe { Self::from_inner_in(ptr, Global) }
+    // }
+
+    // #[inline]
+    // unsafe fn from_ptr(ptr: *mut RcBox<T>) -> Self {
+    //     unsafe { Self::from_inner(NonNull::new_unchecked(ptr)) }
+    // }
 }
 
 impl<T: ?Sized, A: Allocator> Rc<T, A> {
-    #[inline(always)]
-    fn inner(&self) -> &RcBox<T> {
-        // This unsafety is ok because while this Rc is alive we're guaranteed
-        // that the inner pointer is valid.
-        unsafe { self.ptr.as_ref() }
-    }
+    // #[inline(always)]
+    // fn inner(&self) -> &RcBox<T> {
+    //     // This unsafety is ok because while this Rc is alive we're guaranteed
+    //     // that the inner pointer is valid.
+    //     unsafe { self.ptr.as_ref() }
+    // }
+
+    // #[inline]
+    // fn into_inner_with_allocator(this: Self) -> (NonNull<RcBox<T>>, A) {
+    //     let this = mem::ManuallyDrop::new(this);
+    //     (this.ptr, unsafe { ptr::read(&this.alloc) })
+    // }
 
     #[inline]
-    fn into_inner_with_allocator(this: Self) -> (NonNull<RcBox<T>>, A) {
-        let this = mem::ManuallyDrop::new(this);
-        (this.ptr, unsafe { ptr::read(&this.alloc) })
+    unsafe fn from_poly_in(poly: StrongPoly, alloc: A) -> Self {
+        Self { poly, phantom: PhantomData, alloc }
     }
 
-    #[inline]
-    unsafe fn from_inner_in(ptr: NonNull<RcBox<T>>, alloc: A) -> Self {
-        Self { ptr, phantom: PhantomData, alloc }
-    }
+    // #[inline]
+    // unsafe fn from_inner_in(ptr: NonNull<RcBox<T>>, alloc: A) -> Self {
+    //     Self { ptr, phantom: PhantomData, alloc }
+    // }
 
-    #[inline]
-    unsafe fn from_ptr_in(ptr: *mut RcBox<T>, alloc: A) -> Self {
-        unsafe { Self::from_inner_in(NonNull::new_unchecked(ptr), alloc) }
-    }
+    // #[inline]
+    // unsafe fn from_ptr_in(ptr: *mut RcBox<T>, alloc: A) -> Self {
+    //     unsafe { Self::from_inner_in(NonNull::new_unchecked(ptr), alloc) }
+    // }
 }
 
 impl<T> Rc<T> {
@@ -391,16 +404,7 @@ impl<T> Rc<T> {
     #[cfg(not(no_global_oom_handling))]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new(value: T) -> Rc<T> {
-        // There is an implicit weak pointer owned by all the strong
-        // pointers, which ensures that the weak destructor never frees
-        // the allocation while the strong destructor is running, even
-        // if the weak pointer is stored inside the strong one.
-        unsafe {
-            Self::from_inner(
-                Box::leak(Box::new(RcBox { strong: Cell::new(1), weak: Cell::new(1), value }))
-                    .into(),
-            )
-        }
+        Rc::new_in(value, Global)
     }
 
     /// Constructs a new `Rc<T>` while giving you a `Weak<T>` to the allocation,
@@ -677,11 +681,10 @@ impl<T, A: Allocator> Rc<T, A> {
     #[unstable(feature = "allocator_api", issue = "32838")]
     #[inline]
     pub fn new_in(value: T, alloc: A) -> Rc<T, A> {
-        // NOTE: Prefer match over unwrap_or_else since closure sometimes not inlineable.
-        // That would make code size bigger.
-        match Self::try_new_in(value, alloc) {
-            Ok(m) => m,
-            Err(_) => handle_alloc_error(Layout::new::<RcBox<T>>()),
+        let poly = StrongPoly::new_uninit(T::LAYOUT_AND_OFFSET, &alloc);
+        unsafe {
+            poly.as_ptr_to::<T>().write(value);
+            Rc::from_poly_in(alloc)
         }
     }
 
@@ -712,16 +715,8 @@ impl<T, A: Allocator> Rc<T, A> {
     // #[unstable(feature = "new_uninit", issue = "63291")]
     #[inline]
     pub fn new_uninit_in(alloc: A) -> Rc<mem::MaybeUninit<T>, A> {
-        unsafe {
-            Rc::from_ptr_in(
-                Rc::allocate_for_layout(
-                    Layout::new::<T>(),
-                    |layout| alloc.allocate(layout),
-                    <*mut u8>::cast,
-                ),
-                alloc,
-            )
-        }
+        let poly = StrongPoly::new_uninit(T::LAYOUT_AND_OFFSET, &alloc);
+        unsafe { Rc::from_poly_in(alloc) }
     }
 
     /// Constructs a new `Rc` with uninitialized contents, with the memory
@@ -750,16 +745,8 @@ impl<T, A: Allocator> Rc<T, A> {
     // #[unstable(feature = "new_uninit", issue = "63291")]
     #[inline]
     pub fn new_zeroed_in(alloc: A) -> Rc<mem::MaybeUninit<T>, A> {
-        unsafe {
-            Rc::from_ptr_in(
-                Rc::allocate_for_layout(
-                    Layout::new::<T>(),
-                    |layout| alloc.allocate_zeroed(layout),
-                    <*mut u8>::cast,
-                ),
-                alloc,
-            )
-        }
+        let poly = StrongPoly::new_zeroed(T::LAYOUT_AND_OFFSET, &alloc);
+        unsafe { Rc::from_poly_in(alloc) }
     }
 
     /// Constructs a new `Rc<T>` in the provided allocator, returning an error if the allocation
@@ -778,15 +765,11 @@ impl<T, A: Allocator> Rc<T, A> {
     #[unstable(feature = "allocator_api", issue = "32838")]
     #[inline]
     pub fn try_new_in(value: T, alloc: A) -> Result<Self, AllocError> {
-        // There is an implicit weak pointer owned by all the strong
-        // pointers, which ensures that the weak destructor never frees
-        // the allocation while the strong destructor is running, even
-        // if the weak pointer is stored inside the strong one.
-        let (ptr, alloc) = Box::into_unique(Box::try_new_in(
-            RcBox { strong: Cell::new(1), weak: Cell::new(1), value },
-            alloc,
-        )?);
-        Ok(unsafe { Self::from_inner_in(ptr.into(), alloc) })
+        let poly = StrongPoly::try_new_uninit(T::LAYOUT_AND_OFFSET, &alloc)?;
+        unsafe {
+            poly.as_ptr_to::<T>().write(value);
+            Ok(Rc::from_poly_in(alloc))
+        }
     }
 
     /// Constructs a new `Rc` with uninitialized contents, in the provided allocator, returning an
@@ -817,16 +800,8 @@ impl<T, A: Allocator> Rc<T, A> {
     // #[unstable(feature = "new_uninit", issue = "63291")]
     #[inline]
     pub fn try_new_uninit_in(alloc: A) -> Result<Rc<mem::MaybeUninit<T>, A>, AllocError> {
-        unsafe {
-            Ok(Rc::from_ptr_in(
-                Rc::try_allocate_for_layout(
-                    Layout::new::<T>(),
-                    |layout| alloc.allocate(layout),
-                    <*mut u8>::cast,
-                )?,
-                alloc,
-            ))
-        }
+        let poly = StrongPoly::try_new_uninit(T::LAYOUT_AND_OFFSET, &alloc)?;
+        unsafe { Ok(Rc::from_poly_in(alloc)) }
     }
 
     /// Constructs a new `Rc` with uninitialized contents, with the memory
@@ -856,16 +831,8 @@ impl<T, A: Allocator> Rc<T, A> {
     //#[unstable(feature = "new_uninit", issue = "63291")]
     #[inline]
     pub fn try_new_zeroed_in(alloc: A) -> Result<Rc<mem::MaybeUninit<T>, A>, AllocError> {
-        unsafe {
-            Ok(Rc::from_ptr_in(
-                Rc::try_allocate_for_layout(
-                    Layout::new::<T>(),
-                    |layout| alloc.allocate_zeroed(layout),
-                    <*mut u8>::cast,
-                )?,
-                alloc,
-            ))
-        }
+        let poly = StrongPoly::try_new_zeroed(T::LAYOUT_AND_OFFSET, &alloc)?;
+        unsafe { Ok(Rc::from_poly_in(alloc)) }
     }
 
     /// Constructs a new `Pin<Rc<T>>` in the provided allocator. If `T` does not implement `Unpin`, then

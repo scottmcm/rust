@@ -106,12 +106,14 @@
 #![feature(clone_to_uninit)]
 #![feature(coerce_unsized)]
 #![feature(const_align_of_val)]
+#![feature(const_alloc_layout_extend)]
 #![feature(const_box)]
 #![feature(const_cow_is_borrowed)]
 #![feature(const_eval_select)]
 #![feature(const_heap)]
 #![feature(const_maybe_uninit_as_mut_ptr)]
 #![feature(const_maybe_uninit_write)]
+#![feature(const_nonnull_new)]
 #![feature(const_option)]
 #![feature(const_pin)]
 #![feature(const_refs_to_cell)]
@@ -164,6 +166,7 @@
 //
 // Language features:
 // tidy-alphabetical-start
+#![cfg_attr(bootstrap, feature(min_exhaustive_patterns))]
 #![cfg_attr(not(test), feature(coroutine_trait))]
 #![cfg_attr(test, feature(panic_update_hook))]
 #![cfg_attr(test, feature(test))]

@@ -395,16 +395,19 @@ impl Layout {
     /// # assert_eq!(repr_c(&[u64, u32, u16, u32]), Ok((s, vec![0, 8, 12, 16])));
     /// ```
     #[stable(feature = "alloc_layout_manipulation", since = "1.44.0")]
+    #[rustc_const_unstable(feature = "const_alloc_layout_extend", issue = "none")]
     #[inline]
-    pub fn extend(&self, next: Self) -> Result<(Self, usize), LayoutError> {
-        let new_align = cmp::max(self.align, next.align);
+    pub const fn extend(&self, next: Self) -> Result<(Self, usize), LayoutError> {
+        let new_align = Alignment::max(self.align, next.align);
         let pad = self.padding_needed_for(next.align());
 
-        let offset = self.size().checked_add(pad).ok_or(LayoutError)?;
-        let new_size = offset.checked_add(next.size()).ok_or(LayoutError)?;
+        let Some(offset) = self.size().checked_add(pad) else { return Err(LayoutError) };
+        let Some(new_size) = offset.checked_add(next.size()) else { return Err(LayoutError) };
 
         // The safe constructor is called here to enforce the isize size limit.
-        let layout = Layout::from_size_alignment(new_size, new_align)?;
+        let Ok(layout) = Layout::from_size_alignment(new_size, new_align) else {
+            return Err(LayoutError);
+        };
         Ok((layout, offset))
     }
 
