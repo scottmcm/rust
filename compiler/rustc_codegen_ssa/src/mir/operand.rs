@@ -9,6 +9,7 @@ use rustc_middle::mir::{self, ConstValue};
 use rustc_middle::ty::Ty;
 use rustc_middle::ty::layout::{LayoutOf, TyAndLayout};
 use rustc_middle::{bug, span_bug};
+use rustc_session::config::OptLevel;
 use tracing::{debug, instrument};
 
 use super::place::{PlaceRef, PlaceValue};
@@ -496,14 +497,52 @@ impl<'a, 'tcx, V: CodegenObject> OperandRef<'tcx, V> {
                     _ => (tag_imm, bx.cx().immediate_backend_type(tag_op.layout)),
                 };
 
+                // Layout ensures that we only get here for cases where the discriminant
+                // value and the variant index match, since that's all `Niche` can encode.
+                // But for emphasis and debugging, let's double-check one anyway.
+                debug_assert_eq!(
+                    self.layout
+                        .ty
+                        .discriminant_for_variant(bx.tcx(), untagged_variant)
+                        .unwrap()
+                        .val,
+                    u128::from(untagged_variant.as_u32()),
+                );
+
+                // Because of `Option` and `Result`, by far the most common cases of niche-encoded
+                // tags only have one niche variant. As such, we special-case the codegen for
+                // that case rather than using the general algorithm.
+                // With just one niche value we can directly test for it, and by selecting the
+                // corresponding discriminant values directly we can also avoid needing to cast.
                 let relative_max = niche_variants.end().as_u32() - niche_variants.start().as_u32();
+                if relative_max == 0 {
+                    let niche_const = bx.cx().const_uint_big(tag_llty, niche_start);
+                    let is_niche = bx.icmp(IntPredicate::IntEQ, tag, niche_const);
+
+                    let make_discr = |v: abi::VariantIdx| {
+                        let discr = u64::from(v.as_u32());
+                        bx.cx().const_uint(cast_to, discr)
+                    };
+                    let niche_discr = make_discr(*niche_variants.start());
+                    let natural_discr = make_discr(untagged_variant);
+                    return bx.select(is_niche, niche_discr, natural_discr);
+                }
+
+                if niche_variants.contains(&untagged_variant)
+                    && bx.cx().sess().opts.optimize != OptLevel::No
+                {
+                    let impossible = untagged_variant.as_u32() - niche_variants.start().as_u32();
+                    let impossible = u128::from(impossible).wrapping_add(niche_start);
+                    let impossible = bx.cx().const_uint_big(tag_llty, impossible);
+                    let ne = bx.icmp(IntPredicate::IntNE, tag, impossible);
+                    bx.assume(ne);
+                }
 
                 // We have a subrange `niche_start..=niche_end` inside `range`.
                 // If the value of the tag is inside this subrange, it's a
                 // "niche value", an increment of the discriminant. Otherwise it
                 // indicates the untagged variant.
-                // A general algorithm to extract the discriminant from the tag
-                // is:
+                // The algorithm to extract the discriminant from the tag is:
                 // relative_tag = tag - niche_start
                 // is_niche = relative_tag <= (ule) relative_max
                 // discr = if is_niche {
@@ -511,39 +550,22 @@ impl<'a, 'tcx, V: CodegenObject> OperandRef<'tcx, V> {
                 // } else {
                 //     untagged_variant
                 // }
-                // However, we will likely be able to emit simpler code.
-                let (is_niche, tagged_discr, delta) = if relative_max == 0 {
-                    // Best case scenario: only one tagged variant. This will
-                    // likely become just a comparison and a jump.
-                    // The algorithm is:
-                    // is_niche = tag == niche_start
-                    // discr = if is_niche {
-                    //     niche_start
-                    // } else {
-                    //     untagged_variant
-                    // }
-                    let niche_start = bx.cx().const_uint_big(tag_llty, niche_start);
-                    let is_niche = bx.icmp(IntPredicate::IntEQ, tag, niche_start);
-                    let tagged_discr =
-                        bx.cx().const_uint(cast_to, niche_variants.start().as_u32() as u64);
-                    (is_niche, tagged_discr, 0)
-                } else {
-                    // The special cases don't apply, so we'll have to go with
-                    // the general algorithm.
+                let (is_niche, tagged_discr, delta) = {
                     let relative_discr = bx.sub(tag, bx.cx().const_uint_big(tag_llty, niche_start));
                     let cast_tag = bx.intcast(relative_discr, cast_to, false);
+
                     let is_niche = bx.icmp(
                         IntPredicate::IntULE,
                         relative_discr,
                         bx.cx().const_uint(tag_llty, relative_max as u64),
                     );
-                    (is_niche, cast_tag, niche_variants.start().as_u32() as u128)
+                    (is_niche, cast_tag, u64::from(niche_variants.start().as_u32()))
                 };
 
                 let tagged_discr = if delta == 0 {
                     tagged_discr
                 } else {
-                    bx.add(tagged_discr, bx.cx().const_uint_big(cast_to, delta))
+                    bx.add(tagged_discr, bx.cx().const_uint(cast_to, delta))
                 };
 
                 let discr = bx.select(
