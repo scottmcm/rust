@@ -782,6 +782,26 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         *self = Self::build(self.cx, next_bb);
     }
 
+    fn assume_nonnull(&mut self, val: Self::Value) {
+        let (ty, f) = self.cx.get_intrinsic("llvm.assume".into(), &[]);
+        let const_true = self.cx.const_bool(true);
+        let meta = llvm::OperandBundleBox::new("nonnull", &[val]);
+        let args = [const_true];
+        let bundles = [meta.as_ref()];
+        unsafe {
+            llvm::LLVMBuildCallWithOperandBundles(
+                self.llbuilder,
+                ty,
+                f,
+                args.as_ptr(),
+                1,
+                bundles.as_ptr(),
+                1,
+                c"".as_ptr(),
+            );
+        }
+    }
+
     fn range_metadata(&mut self, load: &'ll Value, range: WrappingRange) {
         if self.cx.sess().opts.optimize == OptLevel::No {
             // Don't emit metadata we're not going to use

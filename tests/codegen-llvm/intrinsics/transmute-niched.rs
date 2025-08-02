@@ -193,8 +193,7 @@ pub unsafe fn check_bool_to_ordering(x: bool) -> std::cmp::Ordering {
 pub unsafe fn check_nonnull_to_ptr(x: NonNull<u8>) -> *const u8 {
     // CHECK-NOT: icmp
     // CHECK-NOT: assume
-    // OPT: %0 = icmp ne ptr %x, null
-    // OPT: call void @llvm.assume(i1 %0)
+    // OPT: call void @llvm.assume(i1 true) [ "nonnull"(ptr %x) ]
     // CHECK-NOT: icmp
     // CHECK-NOT: assume
     // CHECK: ret ptr %x
@@ -207,8 +206,7 @@ pub unsafe fn check_nonnull_to_ptr(x: NonNull<u8>) -> *const u8 {
 pub unsafe fn check_ptr_to_nonnull(x: *const u8) -> NonNull<u8> {
     // CHECK-NOT: icmp
     // CHECK-NOT: assume
-    // OPT: %0 = icmp ne ptr %x, null
-    // OPT: call void @llvm.assume(i1 %0)
+    // OPT: call void @llvm.assume(i1 true) [ "nonnull"(ptr %x) ]
     // CHECK-NOT: icmp
     // CHECK-NOT: assume
     // CHECK: ret ptr %x
