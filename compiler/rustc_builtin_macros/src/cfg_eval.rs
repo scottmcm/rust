@@ -4,7 +4,6 @@ use rustc_ast as ast;
 use rustc_ast::mut_visit::MutVisitor;
 use rustc_ast::visit::{AssocCtxt, Visitor};
 use rustc_ast::{Attribute, HasAttrs, HasTokens, NodeId, mut_visit, visit};
-use rustc_errors::PResult;
 use rustc_expand::base::{Annotatable, ExtCtxt};
 use rustc_expand::config::StripUnconfigured;
 use rustc_expand::configure;
@@ -110,7 +109,7 @@ impl CfgEval<'_> {
         // our attribute target will correctly configure the tokens as well.
         let mut parser = Parser::new(&self.0.sess.psess, orig_tokens, None);
         parser.capture_cfg = true;
-        let res: PResult<'_, Annotatable> = try {
+        let res = try {
             match annotatable {
                 Annotatable::Item(_) => {
                     let item = parser.parse_item(ForceCollect::Yes)?.unwrap();

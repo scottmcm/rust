@@ -2,7 +2,7 @@ use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use std::{env, io, iter, mem, str};
+use std::{env, iter, mem, str};
 
 use find_msvc_tools;
 use rustc_hir::def_id::{CrateNum, LOCAL_CRATE};
@@ -808,7 +808,7 @@ impl<'a> Linker for GccLinker<'a> {
 
         if self.sess.target.is_like_darwin {
             // Write a plain, newline-separated list of symbols
-            let res: io::Result<()> = try {
+            let res = try {
                 let mut f = File::create_buffered(&path)?;
                 for (sym, _) in symbols {
                     debug!("  _{sym}");
@@ -820,7 +820,7 @@ impl<'a> Linker for GccLinker<'a> {
             }
             self.link_arg("-exported_symbols_list").link_arg(path);
         } else if self.sess.target.is_like_windows {
-            let res: io::Result<()> = try {
+            let res = try {
                 let mut f = File::create_buffered(&path)?;
 
                 // .def file similar to MSVC one but without LIBRARY section
@@ -839,7 +839,7 @@ impl<'a> Linker for GccLinker<'a> {
             }
             self.link_arg(path);
         } else if crate_type == CrateType::Executable && !self.sess.target.is_like_solaris {
-            let res: io::Result<()> = try {
+            let res = try {
                 let mut f = File::create_buffered(&path)?;
                 writeln!(f, "{{")?;
                 for (sym, _) in symbols {
@@ -859,7 +859,7 @@ impl<'a> Linker for GccLinker<'a> {
             }
         } else {
             // Write an LD version script
-            let res: io::Result<()> = try {
+            let res = try {
                 let mut f = File::create_buffered(&path)?;
                 writeln!(f, "{{")?;
                 if !symbols.is_empty() {
@@ -1138,7 +1138,7 @@ impl<'a> Linker for MsvcLinker<'a> {
         }
 
         let path = tmpdir.join("lib.def");
-        let res: io::Result<()> = try {
+        let res = try {
             let mut f = File::create_buffered(&path)?;
 
             // Start off with the standard module name header and then go
@@ -1721,7 +1721,7 @@ impl<'a> Linker for AixLinker<'a> {
         symbols: &[(String, SymbolExportKind)],
     ) {
         let path = tmpdir.join("list.exp");
-        let res: io::Result<()> = try {
+        let res = try {
             let mut f = File::create_buffered(&path)?;
             // FIXME: use llvm-nm to generate export list.
             for (symbol, _) in symbols {
@@ -2121,7 +2121,7 @@ impl<'a> Linker for BpfLinker<'a> {
         symbols: &[(String, SymbolExportKind)],
     ) {
         let path = tmpdir.join("symbols");
-        let res: io::Result<()> = try {
+        let res = try {
             let mut f = File::create_buffered(&path)?;
             for (sym, _) in symbols {
                 writeln!(f, "{sym}")?;

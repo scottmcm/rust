@@ -57,7 +57,7 @@ pub(crate) fn parse_external_mod(
     attrs: &mut AttrVec,
 ) -> ParsedExternalMod {
     // We bail on the first error, but that error does not cause a fatal error... (1)
-    let result: Result<_, ModError<'_>> = try {
+    let result = try {
         // Extract the file path and the new ownership.
         let mp = mod_file_path(sess, ident, attrs, &module.dir_path, dir_ownership)?;
         dir_ownership = mp.dir_ownership;

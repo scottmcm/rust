@@ -389,7 +389,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
 
         // If an error is raised here, pop the frame again to get an accurate backtrace.
         // To this end, we wrap it all in a `try` block.
-        let res: InterpResult<'tcx> = try {
+        let res = try {
             trace!(
                 "caller ABI: {:#?}, args: {:#?}",
                 caller_fn_abi,
